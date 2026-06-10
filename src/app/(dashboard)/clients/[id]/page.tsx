@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { UtilisationDataTab } from "@/components/clients/UtilisationDataTab";
+import { ClientEditModal, ClientTerminateModal, ClientReactivateModal } from "@/components/clients/ClientModals";
 import { apiGet } from "@/lib/api-client";
 import { useOpsStore } from "@/store/filterStore";
 import { formatUsd, formatInr, formatDate } from "@/lib/utils";
@@ -32,6 +33,10 @@ export default function ClientDetail({ params }: { params: { id: string } }) {
   const { data, mutate } = useSWR<Detail>(`/api/clients/${params.id}?year=${periodYear}&month=${periodMonth}`, apiGet);
   const c = data?.data;
   const m = data?.metrics;
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [termOpen, setTermOpen] = React.useState(false);
+  const [reactOpen, setReactOpen] = React.useState(false);
+  const isActive = !c?.endDate || new Date(c.endDate) >= new Date();
 
   return (
     <div className="flex-1 overflow-auto p-5">
@@ -40,8 +45,29 @@ export default function ClientDetail({ params }: { params: { id: string } }) {
         <h1 className="text-[22px] font-bold text-[#0F1629]">{c?.name ?? "…"}</h1>
         {c && <Badge tone={c.billingType === "LEGACY" ? "neutral" : "purple"}>{c.billingType}</Badge>}
         {c && <Badge tone="info">{c.paymentMethod}</Badge>}
-        {c && <StatusBadge status={c.endDate && new Date(c.endDate) < new Date() ? "CHURNED" : "ACTIVE"} />}
+        {c && <StatusBadge status={isActive ? "ACTIVE" : "CHURNED"} />}
+        <div className="ml-auto flex gap-2">
+          <Button variant="secondary" onClick={() => setEditOpen(true)}>Edit Client</Button>
+          {isActive ? (
+            <Button variant="danger" onClick={() => setTermOpen(true)}>Terminate Service</Button>
+          ) : (
+            <Button variant="success" onClick={() => setReactOpen(true)}>Reactivate</Button>
+          )}
+        </div>
       </div>
+
+      {c && (
+        <>
+          <ClientEditModal
+            open={editOpen}
+            onOpenChange={setEditOpen}
+            client={{ id: c.id, name: c.name, startDate: c.startDate, endDate: c.endDate, paymentMethod: c.paymentMethod, billingType: c.billingType, driverBand: c.driverBand, vanBand: c.vanBand, routeBand: c.routeBand }}
+            onSaved={() => mutate()}
+          />
+          <ClientTerminateModal open={termOpen} onOpenChange={setTermOpen} clientId={c.id} onSaved={() => mutate()} />
+          <ClientReactivateModal open={reactOpen} onOpenChange={setReactOpen} clientId={c.id} onSaved={() => mutate()} />
+        </>
+      )}
 
       <Tabs defaultValue="overview" className="mt-4">
         <TabsList>

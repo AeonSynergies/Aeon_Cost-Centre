@@ -41,6 +41,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   else data = { isBillable: body.isBillable };
 
   const updated = await prisma.resource.update({ where: { id: params.id }, data });
+
+  // Auto-trigger: terminating a resource closes its active assignments on the
+  // termination date.
+  if (body.type === "TERMINATION") {
+    const termDate = new Date(body.effectiveDate);
+    await prisma.resourceAssignment.updateMany({
+      where: {
+        resourceId: params.id,
+        OR: [{ assignedTo: null }, { assignedTo: { gt: termDate } }],
+      },
+      data: { assignedTo: termDate },
+    });
+  }
+
   await writeAudit({
     userId: u.user.id,
     entity: "Resource",

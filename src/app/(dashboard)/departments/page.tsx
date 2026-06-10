@@ -10,8 +10,9 @@ import { FilterBar, FilterSelect } from "@/components/common/FilterBar";
 import { DataTable } from "@/components/common/DataTable";
 import { Button } from "@/components/ui/button";
 import { Money } from "@/components/common/CurrencyDisplay";
-import { CategoryBadge, CodeBadges } from "@/components/common/StatusBadge";
+import { CategoryBadge, CodeBadges, DEPT_CATEGORY_OPTIONS } from "@/components/common/StatusBadge";
 import { DepartmentForm } from "@/components/departments/DepartmentForm";
+import { Input } from "@/components/ui/input";
 import { apiGet } from "@/lib/api-client";
 import { useOpsStore } from "@/store/filterStore";
 
@@ -33,9 +34,14 @@ export default function DepartmentsPage() {
   const { periodYear, periodMonth } = useOpsStore();
   const { data, isLoading, mutate } = useSWR<{ data: Row[] }>(`/api/departments?year=${periodYear}&month=${periodMonth}`, apiGet);
   const [catF, setCatF] = React.useState("");
+  const [search, setSearch] = React.useState("");
   const [open, setOpen] = React.useState(false);
 
-  const rows = (data?.data ?? []).filter((r) => !catF || r.category === catF);
+  const rows = (data?.data ?? []).filter((r) => {
+    if (catF && r.category !== catF) return false;
+    if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
 
   const columns: ColumnDef<Row, unknown>[] = [
     { accessorKey: "name", header: "Department", cell: ({ getValue }) => <span className="font-semibold">{getValue() as string}</span> },
@@ -53,11 +59,8 @@ export default function DepartmentsPage() {
       actions={<Button onClick={() => setOpen(true)}><Plus size={14} /> Add Department</Button>}
       filterBar={
         <FilterBar>
-          <FilterSelect value={catF} onChange={setCatF} placeholder="All Categories" options={[
-            { value: "CLIENT_FACING", label: "Client-facing" },
-            { value: "BUSINESS_DEVELOPMENT", label: "Business Development" },
-            { value: "PRODUCT_DEVELOPMENT", label: "Product Development" },
-          ]} />
+          <FilterSelect value={catF} onChange={setCatF} placeholder="All Categories" options={DEPT_CATEGORY_OPTIONS} />
+          <Input className="h-[30px] w-44" placeholder="Search department…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </FilterBar>
       }
     >

@@ -75,8 +75,27 @@ const DEPTS = [
   { id: "dept-ta", name: "Talent Acquisition", category: "CLIENT_FACING" as const },
   { id: "dept-vo", name: "Virtual Operations", category: "CLIENT_FACING" as const },
   { id: "dept-bd", name: "Business Development", category: "BUSINESS_DEVELOPMENT" as const },
-  { id: "dept-pd", name: "Product Development", category: "PRODUCT_DEVELOPMENT" as const },
+  { id: "dept-pd", name: "SaaS Development", category: "SAAS_DEVELOPMENT" as const },
 ];
+
+const DEPT_CATEGORIES = [
+  { key: "CLIENT_FACING", name: "Client Facing" },
+  { key: "ADMINISTRATION", name: "Administration" },
+  { key: "BUSINESS_DEVELOPMENT", name: "Business Development" },
+  { key: "INTERNAL", name: "Internal" },
+  { key: "SAAS_DEVELOPMENT", name: "SaaS Development" },
+];
+
+async function seedDepartmentCategories() {
+  for (const c of DEPT_CATEGORIES) {
+    await prisma.departmentCategory.upsert({
+      where: { key: c.key },
+      update: { name: c.name, isBuiltIn: true },
+      create: { key: c.key, name: c.name, isBuiltIn: true },
+    });
+  }
+  return DEPT_CATEGORIES.length;
+}
 
 const COST_CENTRES = [
   { id: "cc-mgmt", name: "Aeon - Management", ms365RateInr: 900, zoomRateUsd: 16.5 },
@@ -492,6 +511,7 @@ async function main() {
   counts.systemConfig = await seedSystemConfig();
   counts.allocationConfig = await seedAllocation();
   counts.departments = await seedDepartments();
+  counts.deptCategories = await seedDepartmentCategories();
   counts.costCentres = await seedCostCentres();
   counts.services = await seedServices();
   counts.resources = await seedResources();

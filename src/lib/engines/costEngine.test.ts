@@ -46,6 +46,26 @@ describe("costEngine - fully loaded cost", () => {
     expect(r.totalCostUsd).toBeCloseTo(39319 / 80, 6);
   });
 
+  it("adds active monthly extra costs into the total", () => {
+    const r = calculateFullyLoadedCost({
+      baseSalary: 20000,
+      incentive: 0,
+      allowance: 0,
+      overheadManual: null,
+      overheadPct: 10,
+      laptopCostInr: null,
+      amortisationMonths: 36,
+      ms365RateInr: 0,
+      zoomRateUsd: 0,
+      rateB: 86,
+      rateD: 80,
+      extraMonthlyInr: 1500,
+    });
+    expect(r.extraMonthly).toBe(1500);
+    // 20000 + 2000 overhead + 1500 extra
+    expect(r.totalCostInr).toBe(23500);
+  });
+
   it("uses a manual overhead override when provided", () => {
     const r = calculateFullyLoadedCost({
       baseSalary: 50000,

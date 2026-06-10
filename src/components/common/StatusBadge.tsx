@@ -20,11 +20,26 @@ export function StatusBadge({ status }: { status: string }) {
   return <Badge tone={v.tone}>{v.label}</Badge>;
 }
 
+const CATEGORY_LABELS: Record<string, { tone: BadgeTone; label: string }> = {
+  CLIENT_FACING: { tone: "success", label: "Client Facing" },
+  ADMINISTRATION: { tone: "info", label: "Administration" },
+  BUSINESS_DEVELOPMENT: { tone: "warning", label: "Business Dev" },
+  INTERNAL: { tone: "neutral", label: "Internal" },
+  SAAS_DEVELOPMENT: { tone: "purple", label: "SaaS Dev" },
+};
+
 export function CategoryBadge({ category }: { category: string }) {
-  if (category === "CLIENT_FACING") return <Badge tone="success">Client-facing</Badge>;
-  if (category === "BUSINESS_DEVELOPMENT") return <Badge tone="warning">Business Dev</Badge>;
-  return <Badge tone="purple">Product Dev</Badge>;
+  const v = CATEGORY_LABELS[category] ?? { tone: "neutral" as BadgeTone, label: category };
+  return <Badge tone={v.tone}>{v.label}</Badge>;
 }
+
+export const DEPT_CATEGORY_OPTIONS = [
+  { value: "CLIENT_FACING", label: "Client Facing" },
+  { value: "ADMINISTRATION", label: "Administration" },
+  { value: "BUSINESS_DEVELOPMENT", label: "Business Development" },
+  { value: "INTERNAL", label: "Internal" },
+  { value: "SAAS_DEVELOPMENT", label: "SaaS Development" },
+];
 
 export function CodeBadges({ codes }: { codes: string[] }) {
   return (

@@ -28,6 +28,7 @@ export async function GET(req: Request) {
       department: { select: { id: true, name: true } },
       costCentre: { select: { id: true, name: true, ms365RateInr: true, zoomRateUsd: true } },
       revisions: true,
+      extraCosts: true,
     },
   });
 

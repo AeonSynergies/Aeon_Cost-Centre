@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, Briefcase } from "lucide-react";
+import { Plus, Briefcase, Pencil, XCircle } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PageShell, Stat } from "@/components/common/PageShell";
 import { FilterBar, FilterSelect } from "@/components/common/FilterBar";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Money } from "@/components/common/CurrencyDisplay";
 import { CodeBadges, StatusBadge } from "@/components/common";
+import { ClientEditModal, ClientTerminateModal, type ClientEditData } from "@/components/clients/ClientModals";
 import { apiGet } from "@/lib/api-client";
 import { useOpsStore } from "@/store/filterStore";
 import { formatUsd, formatInr, formatDate } from "@/lib/utils";
@@ -19,16 +20,21 @@ import { formatUsd, formatInr, formatDate } from "@/lib/utils";
 type Row = {
   id: string; name: string; billingType: string; paymentMethod: string;
   packages: string[]; services: string[]; startDate: string; endDate: string | null;
+  driverBand: string | null; vanBand: string | null; routeBand: string | null;
   monthlyFeeUsd: number; monthlyFeeInr: number; totalRevenueUsd: number; totalRevenueInr: number; status: string;
 };
 
 export default function ClientsPage() {
   const router = useRouter();
   const { periodYear, periodMonth } = useOpsStore();
-  const { data, isLoading } = useSWR<{ data: Row[]; summary: Record<string, number> }>(`/api/clients?year=${periodYear}&month=${periodMonth}`, apiGet);
+  const { data, isLoading, mutate } = useSWR<{ data: Row[]; summary: Record<string, number> }>(`/api/clients?year=${periodYear}&month=${periodMonth}`, apiGet);
   const [statusF, setStatusF] = React.useState("");
   const [methodF, setMethodF] = React.useState("");
   const [pkgF, setPkgF] = React.useState("");
+  const [editClient, setEditClient] = React.useState<ClientEditData | null>(null);
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [termId, setTermId] = React.useState<string | null>(null);
+  const [termOpen, setTermOpen] = React.useState(false);
 
   const rows = (data?.data ?? []).filter((r) => {
     if (statusF && r.status !== statusF) return false;
@@ -36,6 +42,11 @@ export default function ClientsPage() {
     if (pkgF && !r.packages.includes(pkgF)) return false;
     return true;
   });
+
+  const openEdit = (r: Row) => {
+    setEditClient({ id: r.id, name: r.name, startDate: r.startDate, endDate: r.endDate, paymentMethod: r.paymentMethod, billingType: r.billingType, driverBand: r.driverBand, vanBand: r.vanBand, routeBand: r.routeBand });
+    setEditOpen(true);
+  };
 
   const columns: ColumnDef<Row, unknown>[] = [
     { accessorKey: "name", header: "Client", cell: ({ getValue }) => <span className="font-semibold">{getValue() as string}</span> },
@@ -48,6 +59,19 @@ export default function ClientsPage() {
     { id: "fee", header: "Monthly Fee", enableColumnFilter: false, cell: ({ row }) => <Money usd={row.original.monthlyFeeUsd} inr={row.original.monthlyFeeInr} primary="USD" /> },
     { id: "rev", header: "Total Revenue", enableColumnFilter: false, cell: ({ row }) => <Money usd={row.original.totalRevenueUsd} inr={row.original.totalRevenueInr} primary="USD" /> },
     { accessorKey: "status", header: "Status", cell: ({ getValue }) => <StatusBadge status={getValue() as string} /> },
+    {
+      id: "actions",
+      header: "Actions",
+      enableColumnFilter: false,
+      cell: ({ row }) => (
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant="ghost" onClick={() => openEdit(row.original)}><Pencil size={12} /></Button>
+          {row.original.status !== "CHURNED" && (
+            <Button size="sm" variant="ghost" onClick={() => { setTermId(row.original.id); setTermOpen(true); }}><XCircle size={12} /></Button>
+          )}
+        </div>
+      ),
+    },
   ];
 
   const s = data?.summary;
@@ -74,6 +98,9 @@ export default function ClientsPage() {
 
       <DataTable columns={columns} data={rows} loading={isLoading} onRowClick={(r) => router.push(`/clients/${r.id}`)}
         empty={{ icon: <Briefcase size={32} />, heading: "No clients", cta: <Button onClick={() => router.push("/clients/new")}><Plus size={14} /> Add Client</Button> }} />
+
+      <ClientEditModal open={editOpen} onOpenChange={setEditOpen} client={editClient} onSaved={() => mutate()} />
+      <ClientTerminateModal open={termOpen} onOpenChange={setTermOpen} clientId={termId} onSaved={() => mutate()} />
     </PageShell>
   );
 }
