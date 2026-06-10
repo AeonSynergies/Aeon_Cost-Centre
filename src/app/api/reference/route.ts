@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/server/api";
+import { requireUser } from "@/lib/session";
 
 /** Minimal lists used to populate dropdowns across modals. */
 export async function GET() {

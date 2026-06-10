@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireRole, writeAudit, badRequest } from "@/lib/server/api";
+import { requireRole, writeAudit, badRequest } from "@/lib/session";
 
 const WRITE = ["ADMIN", "MANAGER"];
 

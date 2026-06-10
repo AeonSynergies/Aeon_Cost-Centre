@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireUser, requireRole, writeAudit, badRequest } from "@/lib/server/api";
-import { getSystemConfig } from "@/lib/server/config";
-import { computeResourceCost, isResourceActive, currentPeriod, type Period } from "@/lib/server/metrics";
+import { requireUser, requireRole, writeAudit, badRequest } from "@/lib/session";
+import { getSystemConfig } from "@/lib/config";
+import { computeResourceCost, isResourceActive, currentPeriod, type Period } from "@/lib/metrics";
 
 const WRITE = ["ADMIN", "MANAGER"];
 

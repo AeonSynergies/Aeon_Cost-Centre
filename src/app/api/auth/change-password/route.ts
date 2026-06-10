@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const schema = z.object({

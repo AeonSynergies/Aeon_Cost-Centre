@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireUser, requireRole, writeAudit, badRequest } from "@/lib/server/api";
-import { getSystemConfig, ratesFromConfig } from "@/lib/server/config";
+import { requireUser, requireRole, writeAudit, badRequest } from "@/lib/session";
+import { getSystemConfig, ratesFromConfig } from "@/lib/config";
 import {
   computeResourceCost,
   isResourceActive,
   perServiceNetRevenueInr,
   currentPeriod,
   type Period,
-} from "@/lib/server/metrics";
+} from "@/lib/metrics";
 import { calculateDeptRevenueShare } from "@/lib/engines/revenueShareEngine";
 import { inrToUsdDisplay } from "@/lib/engines/currencyEngine";
 

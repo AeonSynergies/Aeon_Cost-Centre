@@ -35,6 +35,4 @@ export function SectionTitle({
   );
 }
 
-export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded bg-[#E8ECF4]", className)} />;
-}
+export { Skeleton } from "./skeleton";

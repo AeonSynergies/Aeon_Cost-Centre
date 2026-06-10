@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireUser, requireRole, writeAudit, badRequest } from "@/lib/server/api";
-import { getSystemConfig } from "@/lib/server/config";
-import { computeClientWaterfall, currentPeriod } from "@/lib/server/metrics";
+import { requireUser, requireRole, writeAudit, badRequest } from "@/lib/session";
+import { getSystemConfig } from "@/lib/config";
+import { computeClientWaterfall, currentPeriod } from "@/lib/metrics";
 import {
   getServiceHours,
   getInvoiceHours,
