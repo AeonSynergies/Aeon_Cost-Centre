@@ -24,3 +24,36 @@ export function formatInr(value: number): string {
     maximumFractionDigits: 0,
   }).format(value);
 }
+
+/** Initials from a name, max two characters. */
+export function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+/** Short date: 10 Nov 2025. Returns an em-dash for null/undefined. */
+export function formatDate(date: string | Date | null | undefined): string {
+  if (!date) return "—";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/** "Jun 2026" from a 1-12 month + year. */
+export function formatPeriod(year: number, month: number): string {
+  return `${MONTHS[month - 1] ?? "?"} ${year}`;
+}

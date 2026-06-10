@@ -1,5 +1,5 @@
 import NextAuth from "next-auth";
-import { authConfig } from "@/auth.config";
+import { authConfig } from "@/lib/auth.config";
 
 // Edge-safe auth instance (no Credentials provider / Node modules).
 export const { auth: middleware } = NextAuth(authConfig);
