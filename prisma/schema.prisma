@@ -1,0 +1,365 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  category    DeptCategory
+  headId      String?
+  head        Resource? @relation("DeptHead", fields: [headId], references: [id])
+  resources   Resource[] @relation("DeptResources")
+  services    Service[]
+  costCentres CostCentre[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum DeptCategory {
+  CLIENT_FACING
+  BUSINESS_DEVELOPMENT
+  PRODUCT_DEVELOPMENT
+}
+
+model CostCentre {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  ms365RateInr Float    @default(0)
+  zoomRateUsd  Float    @default(0)
+  resources    Resource[]
+  services     Service[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Resource {
+  id             String    @id @default(cuid())
+  employeeNumber String    @unique
+  name           String
+  title          String
+  departmentId   String
+  department     Department @relation("DeptResources", fields: [departmentId], references: [id])
+  costCentreId   String
+  costCentre     CostCentre @relation(fields: [costCentreId], references: [id])
+  joinedDate     DateTime
+  terminatedDate DateTime?
+  isBillable     Boolean   @default(false)
+  laptopCostInr  Float?
+  laptopIssueDate DateTime?
+  overheadManual Float?
+  revisions      ResourceRevision[]
+  assets         ResourceAsset[]
+  assignments    ResourceAssignment[]
+  utilisationLogs UtilisationLog[]
+  headOfDept     Department[] @relation("DeptHead")
+  auditLogs      AuditLog[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model ResourceRevision {
+  id            String   @id @default(cuid())
+  resourceId    String
+  resource      Resource @relation(fields: [resourceId], references: [id])
+  effectiveFrom DateTime
+  baseSalary    Float
+  incentive     Float    @default(0)
+  allowance     Float    @default(0)
+  workingDays   Int[]
+  dailyWorkHours Float   @default(8)
+  changedById   String?
+  createdAt     DateTime @default(now())
+}
+
+model ResourceAsset {
+  id          String      @id @default(cuid())
+  resourceId  String
+  resource    Resource    @relation(fields: [resourceId], references: [id])
+  assetType   AssetType
+  description String?
+  serialNumber String?
+  issueDate   DateTime
+  returnDate  DateTime?
+  status      AssetStatus @default(ISSUED)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+enum AssetType {
+  LAPTOP
+  CHARGER
+  MOUSE
+  KEYBOARD
+  MONITOR
+  HEADSET
+  OTHER
+}
+
+enum AssetStatus {
+  ISSUED
+  RETURNED
+  LOST
+}
+
+model Service {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  costCentreId String
+  costCentre   CostCentre @relation(fields: [costCentreId], references: [id])
+  description  String?
+  activities   ServiceActivity[]
+  packages     ServicePackage[]
+  clientServices ClientService[]
+  assignments  ResourceAssignment[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ServiceActivity {
+  id                    String   @id @default(cuid())
+  serviceId             String
+  service               Service  @relation(fields: [serviceId], references: [id])
+  name                  String
+  defaultExpectedHoursPerDay Float @default(0)
+  clientOverrides       ActivityClientOverride[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model ActivityClientOverride {
+  id           String          @id @default(cuid())
+  activityId   String
+  activity     ServiceActivity @relation(fields: [activityId], references: [id])
+  clientId     String
+  client       Client          @relation(fields: [clientId], references: [id])
+  expectedHoursPerDay Float
+  createdAt    DateTime        @default(now())
+}
+
+model ServicePackage {
+  id            String      @id @default(cuid())
+  serviceId     String
+  service       Service     @relation(fields: [serviceId], references: [id])
+  packageType   PackageType
+  monthlyFeeUsd Float
+  effectiveFrom DateTime
+  createdAt     DateTime    @default(now())
+}
+
+enum PackageType {
+  LESS_THAN_25
+  MORE_THAN_25
+}
+
+model Client {
+  id            String        @id @default(cuid())
+  name          String
+  startDate     DateTime
+  endDate       DateTime?
+  billingType   BillingType
+  paymentMethod PaymentMethod
+  driverBand    String?
+  vanBand       String?
+  routeBand     String?
+  services      ClientService[]
+  billingRecords BillingRecord[]
+  utilisationLogs UtilisationLog[]
+  activityOverrides ActivityClientOverride[]
+  assignments   ResourceAssignment[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+enum BillingType {
+  LEGACY
+  NEW
+}
+
+enum PaymentMethod {
+  CARD
+  ACH
+}
+
+model ClientService {
+  id            String      @id @default(cuid())
+  clientId      String
+  client        Client      @relation(fields: [clientId], references: [id])
+  serviceId     String
+  service       Service     @relation(fields: [serviceId], references: [id])
+  packageType   PackageType
+  monthlyFeeUsd Float
+  discountMode  DiscountMode @default(PER_PACKAGE)
+  discountPct   Float       @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+enum DiscountMode {
+  PER_SERVICE
+  PER_PACKAGE
+  TOTAL
+}
+
+model ResourceAssignment {
+  id           String   @id @default(cuid())
+  resourceId   String
+  resource     Resource @relation(fields: [resourceId], references: [id])
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id])
+  serviceId    String
+  service      Service  @relation(fields: [serviceId], references: [id])
+  assignedFrom DateTime
+  assignedTo   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model BillingRecord {
+  id                   String        @id @default(cuid())
+  clientId             String
+  client               Client        @relation(fields: [clientId], references: [id])
+  periodYear           Int
+  periodMonth          Int
+  totalServiceCostUsd  Float
+  proratedFeeUsd       Float
+  discountUsd          Float
+  discountedFeeUsd     Float
+  txnFeeUsd            Float
+  netServiceCostUsd    Float
+  stripeFeeUsd         Float
+  grossRevenueUsd      Float
+  abbieRoyaltyUsd      Float
+  reserveFundUsd       Float
+  netRevenueUsd        Float
+  skydoFeeUsd          Float
+  netUsdToConvert      Float
+  usdInrRate           Float
+  netRevenueInr        Float
+  status               BillingStatus @default(DRAFT)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@unique([clientId, periodYear, periodMonth])
+}
+
+enum BillingStatus {
+  DRAFT
+  FINALISED
+}
+
+model UtilisationLog {
+  id                 String   @id @default(cuid())
+  resourceId         String
+  resource           Resource @relation(fields: [resourceId], references: [id])
+  clientId           String
+  client             Client   @relation(fields: [clientId], references: [id])
+  periodYear         Int
+  periodMonth        Int
+  dailyTxnVolume     Float    @default(0)
+  routesRan          Float    @default(0)
+  fleetInvoice       Boolean  @default(false)
+  marshInvoice       Boolean  @default(false)
+  adocHoursPerDay    Float    @default(0)
+  serviceHoursPerDay Float    @default(0)
+  invoiceHoursPerDay Float    @default(0)
+  totalHoursPerDay   Float    @default(0)
+  utilisationPct     Float    @default(0)
+  monthlyHours       Float    @default(0)
+  revenueShareInr    Float    @default(0)
+  status             LogStatus @default(DRAFT)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([resourceId, clientId, periodYear, periodMonth])
+}
+
+enum LogStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+}
+
+model Expense {
+  id           String      @id @default(cuid())
+  periodYear   Int
+  periodMonth  Int
+  currency     Currency
+  category     String
+  description  String
+  departmentId String?
+  costCentreId String?
+  amountUsd    Float?
+  amountInr    Float?
+  conversionRate Float?
+  addedById    String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+enum Currency {
+  INR
+  USD
+}
+
+model SystemConfig {
+  id           String   @id @default(cuid())
+  configKey    String   @unique
+  configValue  Json
+  effectiveFrom DateTime
+  updatedById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AllocationConfig {
+  id                  String   @id @default(cuid())
+  year                Int      @unique
+  deptReservePct      Float
+  businessDevPct      Float
+  productDevPct       Float
+  profitPct           Float
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  hashedPassword String
+  name           String
+  role           UserRole @default(VIEWER)
+  departmentId   String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  FINANCE
+  VIEWER
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  resourceId String?
+  resource   Resource? @relation(fields: [resourceId], references: [id])
+  entity     String
+  entityId   String
+  action     String
+  beforeJson Json?
+  afterJson  Json?
+  createdAt  DateTime @default(now())
+}
