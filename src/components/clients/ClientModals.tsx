@@ -4,6 +4,7 @@ import * as React from "react";
 import { Dialog, DialogContent, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { apiSend } from "@/lib/api-client";
 import { toast } from "@/store/toastStore";
 
@@ -73,16 +74,28 @@ export function ClientEditModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title="Edit Client">
         <DialogBody>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2"><Label>Client Name</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
-            <div><Label>Start Date</Label><Input type="date" value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} /></div>
-            <div><Label>End Date</Label><Input type="date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} /></div>
-            <div><Label>Payment Method</Label><Select value={form.paymentMethod} onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value }))}><option value="ACH">ACH</option><option value="CARD">Card</option></Select></div>
-            <div><Label>Billing Type</Label><Select value={form.billingType} onChange={(e) => setForm((f) => ({ ...f, billingType: e.target.value }))}><option value="LEGACY">Legacy</option><option value="NEW">New</option></Select></div>
-            <div><Label>Drivers</Label><Select value={form.driverBand} onChange={(e) => setForm((f) => ({ ...f, driverBand: e.target.value }))}><option value="">—</option>{DRIVER_BANDS.map((b) => <option key={b} value={b}>{b}</option>)}</Select></div>
-            <div><Label>Vans</Label><Select value={form.vanBand} onChange={(e) => setForm((f) => ({ ...f, vanBand: e.target.value }))}><option value="">—</option>{VAN_BANDS.map((b) => <option key={b} value={b}>{b}</option>)}</Select></div>
-            <div><Label>Daily Routes</Label><Select value={form.routeBand} onChange={(e) => setForm((f) => ({ ...f, routeBand: e.target.value }))}><option value="">—</option>{VAN_BANDS.map((b) => <option key={b} value={b}>{b}</option>)}</Select></div>
-          </div>
+          <Tabs defaultValue="basic">
+            <TabsList>
+              <TabsTrigger value="basic">Basic Info</TabsTrigger>
+              <TabsTrigger value="fleet">Fleet Details</TabsTrigger>
+            </TabsList>
+            <TabsContent value="basic">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2"><Label>Client Name</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
+                <div><Label>Start Date</Label><Input type="date" value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} /></div>
+                <div><Label>End Date</Label><Input type="date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} /></div>
+                <div><Label>Payment Method</Label><Select value={form.paymentMethod} onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value }))}><option value="ACH">ACH</option><option value="CARD">Card</option></Select></div>
+                <div><Label>Billing Type</Label><Select value={form.billingType} onChange={(e) => setForm((f) => ({ ...f, billingType: e.target.value }))}><option value="LEGACY">Legacy</option><option value="NEW">New</option></Select></div>
+              </div>
+            </TabsContent>
+            <TabsContent value="fleet">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>No. of Drivers</Label><Select value={form.driverBand} onChange={(e) => setForm((f) => ({ ...f, driverBand: e.target.value }))}><option value="">—</option>{DRIVER_BANDS.map((b) => <option key={b} value={b}>{b}</option>)}</Select></div>
+                <div><Label>No. of Vans</Label><Select value={form.vanBand} onChange={(e) => setForm((f) => ({ ...f, vanBand: e.target.value }))}><option value="">—</option>{VAN_BANDS.map((b) => <option key={b} value={b}>{b}</option>)}</Select></div>
+                <div><Label>No. of Daily Routes</Label><Select value={form.routeBand} onChange={(e) => setForm((f) => ({ ...f, routeBand: e.target.value }))}><option value="">—</option>{VAN_BANDS.map((b) => <option key={b} value={b}>{b}</option>)}</Select></div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogBody>
         <DialogFooter>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>

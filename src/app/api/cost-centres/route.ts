@@ -50,6 +50,7 @@ export async function GET(req: Request) {
     return {
       id: c.id,
       name: c.name,
+      departmentId: c.departmentId,
       resourceCount: active.length,
       departmentCount,
       expensesInr,

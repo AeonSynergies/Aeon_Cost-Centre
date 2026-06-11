@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { UtilisationDataTab } from "@/components/clients/UtilisationDataTab";
 import { ClientEditModal, ClientTerminateModal, ClientReactivateModal } from "@/components/clients/ClientModals";
+import { ClientServicesModal } from "@/components/clients/ClientServicesModal";
 import { apiGet } from "@/lib/api-client";
 import { useOpsStore } from "@/store/filterStore";
 import { formatUsd, formatInr, formatDate } from "@/lib/utils";
@@ -36,6 +37,7 @@ export default function ClientDetail({ params }: { params: { id: string } }) {
   const [editOpen, setEditOpen] = React.useState(false);
   const [termOpen, setTermOpen] = React.useState(false);
   const [reactOpen, setReactOpen] = React.useState(false);
+  const [svcOpen, setSvcOpen] = React.useState(false);
   const isActive = !c?.endDate || new Date(c.endDate) >= new Date();
 
   return (
@@ -66,6 +68,7 @@ export default function ClientDetail({ params }: { params: { id: string } }) {
           />
           <ClientTerminateModal open={termOpen} onOpenChange={setTermOpen} clientId={c.id} onSaved={() => mutate()} />
           <ClientReactivateModal open={reactOpen} onOpenChange={setReactOpen} clientId={c.id} onSaved={() => mutate()} />
+          <ClientServicesModal open={svcOpen} onOpenChange={setSvcOpen} clientId={c.id} onSaved={() => mutate()} />
         </>
       )}
 
@@ -109,6 +112,7 @@ export default function ClientDetail({ params }: { params: { id: string } }) {
         </TabsContent>
 
         <TabsContent value="services">
+          <div className="mb-2 flex justify-end"><Button variant="secondary" onClick={() => setSvcOpen(true)}>Edit Services</Button></div>
           <Card className="p-4">
             <table className="w-full text-[12px]">
               <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Code</th><th>Package</th><th>Fee ($)</th><th>Department</th><th>Resources</th></tr></thead>

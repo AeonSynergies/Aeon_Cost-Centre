@@ -1,8 +1,10 @@
 "use client";
 
+import * as React from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { ArrowLeft } from "lucide-react";
+import { CostCentreForm } from "@/components/cost-centres/CostCentreForm";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -24,13 +26,18 @@ type Detail = {
 export default function CostCentreDetail({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { periodYear, periodMonth } = useOpsStore();
-  const { data } = useSWR<{ data: Detail }>(`/api/cost-centres/${params.id}?year=${periodYear}&month=${periodMonth}`, apiGet);
+  const { data, mutate } = useSWR<{ data: Detail }>(`/api/cost-centres/${params.id}?year=${periodYear}&month=${periodMonth}`, apiGet);
   const d = data?.data;
+  const [editOpen, setEditOpen] = React.useState(false);
 
   return (
     <div className="flex-1 overflow-auto p-5">
       <Button variant="ghost" size="sm" onClick={() => router.push("/cost-centres")}><ArrowLeft size={14} /> Cost Centres</Button>
-      <h1 className="mt-2 text-[22px] font-bold text-[#0F1629]">{d?.name ?? "…"}</h1>
+      <div className="mt-2 flex items-center gap-3">
+        <h1 className="text-[22px] font-bold text-[#0F1629]">{d?.name ?? "…"}</h1>
+        <div className="ml-auto"><Button variant="secondary" onClick={() => setEditOpen(true)}>Edit Cost Centre</Button></div>
+      </div>
+      {d && <CostCentreForm open={editOpen} onOpenChange={setEditOpen} editing={{ id: d.id, name: d.name }} onSaved={() => mutate()} />}
 
       <Tabs defaultValue="overview" className="mt-4">
         <TabsList>

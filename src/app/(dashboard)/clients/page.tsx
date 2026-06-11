@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, Briefcase, Pencil, XCircle } from "lucide-react";
+import { Plus, Briefcase, Pencil, XCircle, ListChecks } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PageShell, Stat } from "@/components/common/PageShell";
 import { FilterBar, FilterSelect } from "@/components/common/FilterBar";
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Money } from "@/components/common/CurrencyDisplay";
 import { CodeBadges, StatusBadge } from "@/components/common";
 import { ClientEditModal, ClientTerminateModal, type ClientEditData } from "@/components/clients/ClientModals";
+import { ClientServicesModal } from "@/components/clients/ClientServicesModal";
 import { apiGet } from "@/lib/api-client";
 import { useOpsStore } from "@/store/filterStore";
 import { formatUsd, formatInr, formatDate } from "@/lib/utils";
@@ -35,6 +36,8 @@ export default function ClientsPage() {
   const [editOpen, setEditOpen] = React.useState(false);
   const [termId, setTermId] = React.useState<string | null>(null);
   const [termOpen, setTermOpen] = React.useState(false);
+  const [svcId, setSvcId] = React.useState<string | null>(null);
+  const [svcOpen, setSvcOpen] = React.useState(false);
 
   const rows = (data?.data ?? []).filter((r) => {
     if (statusF && r.status !== statusF) return false;
@@ -65,9 +68,10 @@ export default function ClientsPage() {
       enableColumnFilter: false,
       cell: ({ row }) => (
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" variant="ghost" onClick={() => openEdit(row.original)}><Pencil size={12} /></Button>
+          <Button size="sm" variant="ghost" title="Edit Client" onClick={() => openEdit(row.original)}><Pencil size={12} /></Button>
+          <Button size="sm" variant="ghost" title="Edit Services" onClick={() => { setSvcId(row.original.id); setSvcOpen(true); }}><ListChecks size={12} /></Button>
           {row.original.status !== "CHURNED" && (
-            <Button size="sm" variant="ghost" onClick={() => { setTermId(row.original.id); setTermOpen(true); }}><XCircle size={12} /></Button>
+            <Button size="sm" variant="ghost" title="Terminate" onClick={() => { setTermId(row.original.id); setTermOpen(true); }}><XCircle size={12} /></Button>
           )}
         </div>
       ),
@@ -101,6 +105,7 @@ export default function ClientsPage() {
 
       <ClientEditModal open={editOpen} onOpenChange={setEditOpen} client={editClient} onSaved={() => mutate()} />
       <ClientTerminateModal open={termOpen} onOpenChange={setTermOpen} clientId={termId} onSaved={() => mutate()} />
+      <ClientServicesModal open={svcOpen} onOpenChange={setSvcOpen} clientId={svcId} onSaved={() => mutate()} />
     </PageShell>
   );
 }

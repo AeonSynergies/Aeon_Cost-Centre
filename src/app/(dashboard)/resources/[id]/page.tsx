@@ -20,6 +20,9 @@ import { AssetModal, type AssetEditing } from "@/components/resources/AssetModal
 import { AssignmentModal } from "@/components/resources/AssignmentModal";
 import { TransferModal, type TransferTarget } from "@/components/resources/TransferModal";
 import { ExtraCostModal, type ExtraCostEditing } from "@/components/resources/ExtraCostModal";
+import { ResourceEditModal, type ResourceEditing } from "@/components/resources/ResourceEditModal";
+import { AssignmentEditModal, type AssignmentEditing } from "@/components/resources/AssignmentEditModal";
+import { RevisionEditModal, type RevisionEditing } from "@/components/resources/RevisionEditModal";
 import { apiGet, apiSend } from "@/lib/api-client";
 import { toast } from "@/store/toastStore";
 import { useOpsStore } from "@/store/filterStore";
@@ -45,6 +48,9 @@ export default function ResourceDetail({ params }: { params: { id: string } }) {
   const cost = data?.cost;
   const [statusOpen, setStatusOpen] = React.useState(false);
   const [revOpen, setRevOpen] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [editRev, setEditRev] = React.useState<RevisionEditing | null>(null);
+  const [editRevOpen, setEditRevOpen] = React.useState(false);
   const refresh = () => mutate();
   const latestRev = r?.revisions[0];
   const activeAssignments = (r?.assignments ?? []).filter((a) => !a.assignedTo || new Date(a.assignedTo) >= new Date()).length;
@@ -65,6 +71,7 @@ export default function ResourceDetail({ params }: { params: { id: string } }) {
             <span className="font-mono">{r?.employeeNumber}</span> · {r?.department.name} · {r?.costCentre.name} · Joined {formatDate(r?.joinedDate)}
           </div>
         </div>
+        <Button variant="secondary" onClick={() => setEditOpen(true)}>Edit</Button>
         <Button variant="secondary" onClick={() => setStatusOpen(true)}>Change Status</Button>
       </Card>
 
@@ -119,13 +126,16 @@ export default function ResourceDetail({ params }: { params: { id: string } }) {
                 <Card className="p-4 lg:col-span-2">
                   <SectionTitle>Revision History</SectionTitle>
                   <table className="mt-2 w-full text-[12px]">
-                    <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Effective From</th><th>Base (₹)</th><th>Incentive</th><th>Allowance</th><th>Working Days</th><th>Hrs/Day</th></tr></thead>
+                    <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Effective From</th><th>Base (₹)</th><th>Incentive</th><th>Allowance</th><th>Working Days</th><th>Hrs/Day</th><th></th></tr></thead>
                     <tbody>
                       {r.revisions.map((rev) => (
                         <tr key={rev.id} className="border-b border-[#E8ECF4]">
                           <td className="py-2">{formatDate(rev.effectiveFrom)}</td>
                           <td>{formatInr(rev.baseSalary)}</td><td>{formatInr(rev.incentive)}</td><td>{formatInr(rev.allowance)}</td>
                           <td><WorkingDayChips days={rev.workingDays} /></td><td>{rev.dailyWorkHours}</td>
+                          <td className="py-1">
+                            <Button size="sm" variant="ghost" onClick={() => { setEditRev({ id: rev.id, resourceId: params.id, effectiveFrom: rev.effectiveFrom, baseSalary: rev.baseSalary, incentive: rev.incentive, allowance: rev.allowance, workingDays: rev.workingDays, dailyWorkHours: rev.dailyWorkHours }); setEditRevOpen(true); }}><Pencil size={12} /></Button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -149,6 +159,8 @@ export default function ResourceDetail({ params }: { params: { id: string } }) {
         onSaved={refresh}
       />
       {r && <ChangeStatusModal open={statusOpen} onOpenChange={setStatusOpen} resource={{ id: r.id, status: r.status, isBillable: r.isBillable, activeAssignments }} onSaved={refresh} />}
+      {r && <ResourceEditModal open={editOpen} onOpenChange={setEditOpen} resource={{ id: r.id, employeeNumber: r.employeeNumber, name: r.name, title: r.title, departmentId: r.department.id, costCentreId: r.costCentre.id, isBillable: r.isBillable }} onSaved={refresh} />}
+      <RevisionEditModal open={editRevOpen} onOpenChange={setEditRevOpen} editing={editRev} onSaved={refresh} />
     </div>
   );
 }
@@ -279,6 +291,8 @@ function AssignmentsTab({ resourceId, assignments, onSaved }: { resourceId: stri
   const [open, setOpen] = React.useState(false);
   const [transferOpen, setTransferOpen] = React.useState(false);
   const [target, setTarget] = React.useState<TransferTarget | null>(null);
+  const [editAssign, setEditAssign] = React.useState<AssignmentEditing | null>(null);
+  const [editAssignOpen, setEditAssignOpen] = React.useState(false);
   const isActive = (a: Assignment) => !a.assignedTo || new Date(a.assignedTo) >= new Date();
 
   return (
@@ -293,7 +307,8 @@ function AssignmentsTab({ resourceId, assignments, onSaved }: { resourceId: stri
                 <td className="py-2 font-medium">{a.client.name}</td><td className="font-mono text-[11px]">{a.service.code}</td>
                 <td>{formatDate(a.assignedFrom)}</td><td>{formatDate(a.assignedTo)}</td>
                 <td><StatusBadge status={isActive(a) ? "ACTIVE" : "TERMED"} /></td>
-                <td>
+                <td className="flex gap-1 py-1">
+                  <Button size="sm" variant="ghost" onClick={() => { setEditAssign({ id: a.id, resourceId, clientName: a.client.name, serviceLabel: `${a.service.code} — ${a.service.name}`, assignedFrom: a.assignedFrom, assignedTo: a.assignedTo }); setEditAssignOpen(true); }}><Pencil size={12} /></Button>
                   {isActive(a) && (
                     <Button size="sm" variant="ghost" onClick={() => { setTarget({ assignmentId: a.id, resourceId, clientName: a.client.name, serviceLabel: `${a.service.code} — ${a.service.name}` }); setTransferOpen(true); }}>
                       <ArrowLeftRight size={12} /> Transfer
@@ -307,6 +322,7 @@ function AssignmentsTab({ resourceId, assignments, onSaved }: { resourceId: stri
       </Card>
       <AssignmentModal open={open} onOpenChange={setOpen} resourceId={resourceId} onSaved={onSaved} />
       <TransferModal open={transferOpen} onOpenChange={setTransferOpen} target={target} onSaved={onSaved} />
+      <AssignmentEditModal open={editAssignOpen} onOpenChange={setEditAssignOpen} editing={editAssign} onSaved={onSaved} />
     </div>
   );
 }
