@@ -11,8 +11,13 @@ export async function GET() {
   const u = await requireUser();
   if ("error" in u) return u.error;
   const config = await getSystemConfig();
-  const allocations = await prisma.allocationConfig.findMany({ orderBy: { year: "asc" } });
-  return NextResponse.json({ config, allocations });
+  const [allocations, costCentres, gw] = await Promise.all([
+    prisma.allocationConfig.findMany({ orderBy: { year: "asc" } }),
+    prisma.costCentre.findMany({ select: { id: true, name: true, ms365RateInr: true, zoomRateUsd: true }, orderBy: { name: "asc" } }),
+    prisma.systemConfig.findUnique({ where: { configKey: "google_workspace_inr" } }),
+  ]);
+  const googleWorkspaceInr = typeof gw?.configValue === "number" ? (gw.configValue as number) : 125;
+  return NextResponse.json({ config, allocations, costCentres, googleWorkspaceInr });
 }
 
 const schema = z.object({ values: z.record(z.string(), z.number()) });

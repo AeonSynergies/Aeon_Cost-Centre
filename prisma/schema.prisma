@@ -65,6 +65,9 @@ model Resource {
   auditLogs      AuditLog[]
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  @@index([departmentId])
+  @@index([costCentreId])
 }
 
 model ResourceRevision {
@@ -252,6 +255,9 @@ model ResourceAssignment {
   assignedTo   DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@index([resourceId])
+  @@index([clientId])
 }
 
 model BillingRecord {
@@ -280,6 +286,8 @@ model BillingRecord {
   updatedAt            DateTime      @updatedAt
 
   @@unique([clientId, periodYear, periodMonth])
+  @@index([clientId, periodYear, periodMonth])
+  @@index([status])
 }
 
 enum BillingStatus {
@@ -311,6 +319,9 @@ model UtilisationLog {
   updatedAt          DateTime @updatedAt
 
   @@unique([resourceId, clientId, periodYear, periodMonth])
+  @@index([resourceId, periodYear, periodMonth])
+  @@index([clientId, periodYear, periodMonth])
+  @@index([status])
 }
 
 enum LogStatus {
@@ -334,6 +345,10 @@ model Expense {
   addedById    String
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+
+  @@index([periodYear, periodMonth])
+  @@index([costCentreId])
+  @@index([departmentId])
 }
 
 enum Currency {
@@ -370,6 +385,7 @@ model User {
   role           UserRole @default(VIEWER)
   departmentId   String?
   isActive       Boolean  @default(true)
+  lastLoginAt    DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -392,4 +408,8 @@ model AuditLog {
   beforeJson Json?
   afterJson  Json?
   createdAt  DateTime @default(now())
+
+  @@index([entity])
+  @@index([userId])
+  @@index([createdAt])
 }

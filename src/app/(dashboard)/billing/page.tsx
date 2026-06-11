@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogBody, DialogFooter } from "@/components/ui
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { useReference } from "@/hooks/useReference";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { apiGet, apiSend } from "@/lib/api-client";
 import { useOpsStore } from "@/store/filterStore";
 import { toast } from "@/store/toastStore";
@@ -33,6 +34,7 @@ export default function BillingPage() {
   const [statusF, setStatusF] = React.useState("");
   const [typeF, setTypeF] = React.useState("");
   const [genOpen, setGenOpen] = React.useState(false);
+  const { isAdmin } = useCurrentUser();
 
   const rows = (data?.data ?? []).filter((r) => {
     if (statusF && r.status !== statusF) return false;
@@ -58,7 +60,7 @@ export default function BillingPage() {
   return (
     <PageShell
       title="Billing"
-      actions={<Button onClick={() => setGenOpen(true)}><Zap size={14} /> Generate Billing</Button>}
+      actions={isAdmin ? <Button onClick={() => setGenOpen(true)}><Zap size={14} /> Generate Billing</Button> : undefined}
       filterBar={
         <FilterBar>
           <FilterSelect value={statusF} onChange={setStatusF} placeholder="All Status" options={[{ value: "DRAFT", label: "Draft" }, { value: "FINALISED", label: "Finalised" }]} />
