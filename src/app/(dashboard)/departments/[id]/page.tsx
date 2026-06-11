@@ -10,7 +10,9 @@ import { KpiCard } from "@/components/common/KpiCard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CategoryBadge, CodeBadges, StatusBadge } from "@/components/common/StatusBadge";
 import { UtilBar } from "@/components/common/UtilBar";
+import { DepartmentForm } from "@/components/departments/DepartmentForm";
 import { apiGet } from "@/lib/api-client";
+import * as React from "react";
 import { useOpsStore } from "@/store/filterStore";
 import { formatInr, formatUsd } from "@/lib/utils";
 
@@ -30,9 +32,10 @@ type Detail = {
 export default function DepartmentDetail({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { periodYear, periodMonth } = useOpsStore();
-  const { data } = useSWR<{ data: Detail }>(`/api/departments/${params.id}?year=${periodYear}&month=${periodMonth}`, apiGet);
+  const { data, mutate } = useSWR<{ data: Detail }>(`/api/departments/${params.id}?year=${periodYear}&month=${periodMonth}`, apiGet);
   const d = data?.data;
   const k = d?.pnl.kpi;
+  const [editOpen, setEditOpen] = React.useState(false);
 
   return (
     <div className="flex-1 overflow-auto p-5">
@@ -40,7 +43,9 @@ export default function DepartmentDetail({ params }: { params: { id: string } })
       <div className="mt-2 flex items-center gap-3">
         <h1 className="text-[22px] font-bold text-[#0F1629]">{d?.name ?? "…"}</h1>
         {d && <CategoryBadge category={d.category} />}
+        <div className="ml-auto"><Button variant="secondary" onClick={() => setEditOpen(true)}>Edit Department</Button></div>
       </div>
+      {d && <DepartmentForm open={editOpen} onOpenChange={setEditOpen} editing={{ id: d.id, name: d.name, category: d.category, headId: d.head?.id ?? null }} onSaved={() => mutate()} />}
 
       <Tabs defaultValue="overview" className="mt-4">
         <TabsList>

@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/common";
 import { PackageModal, type PackageEditing } from "@/components/services/PackageModal";
 import { ActivityModal, type ActivityEditing } from "@/components/services/ActivityModal";
+import { ServiceForm } from "@/components/services/ServiceForm";
 import { apiGet, apiSend } from "@/lib/api-client";
 import { formatUsd, formatInr, formatDate } from "@/lib/utils";
 
@@ -33,6 +34,7 @@ export default function ServiceDetail({ params }: { params: { id: string } }) {
   const [editPkg, setEditPkg] = React.useState<PackageEditing | null>(null);
   const [actOpen, setActOpen] = React.useState(false);
   const [editAct, setEditAct] = React.useState<ActivityEditing | null>(null);
+  const [svcEditOpen, setSvcEditOpen] = React.useState(false);
 
   const delPkg = async (id: string) => { await apiSend(`/api/services/${params.id}/packages/${id}`, "DELETE"); mutate(); };
   const delAct = async (id: string) => { await apiSend(`/api/services/${params.id}/activities/${id}`, "DELETE"); mutate(); };
@@ -44,7 +46,11 @@ export default function ServiceDetail({ params }: { params: { id: string } }) {
         <Badge tone="info"><span className="font-mono">{d?.code}</span></Badge>
         <h1 className="text-[22px] font-bold text-[#0F1629]">{d?.name ?? "…"}</h1>
         <span className="text-[12px] text-[#64748B]">{d?.department?.name} · {d?.costCentre?.name}</span>
+        <div className="ml-auto"><Button variant="secondary" onClick={() => setSvcEditOpen(true)}>Edit Service</Button></div>
       </div>
+      {d && d.department && d.costCentre && (
+        <ServiceForm open={svcEditOpen} onOpenChange={setSvcEditOpen} editing={{ id: d.id, code: d.code, name: d.name, departmentId: d.department.id, costCentreId: d.costCentre.id, description: d.description }} onSaved={() => mutate()} />
+      )}
 
       <Tabs defaultValue="overview" className="mt-4">
         <TabsList>

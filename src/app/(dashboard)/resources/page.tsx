@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, Download, UserCog } from "lucide-react";
+import { Plus, Download, UserCog, Pencil } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PageShell, Stat } from "@/components/common/PageShell";
 import { FilterBar, FilterSelect } from "@/components/common/FilterBar";
@@ -19,6 +19,7 @@ import {
 } from "@/components/common";
 import { Badge } from "@/components/ui/badge";
 import { ResourceForm } from "@/components/resources/ResourceForm";
+import { ResourceEditModal, type ResourceEditing } from "@/components/resources/ResourceEditModal";
 import { apiGet } from "@/lib/api-client";
 import { useOpsStore } from "@/store/filterStore";
 import { formatInr } from "@/lib/utils";
@@ -28,7 +29,9 @@ type Row = {
   employeeNumber: string;
   name: string;
   title: string;
+  departmentId: string;
   departmentName: string;
+  costCentreId: string;
   costCentreName: string;
   isBillable: boolean;
   workingDays: number[];
@@ -47,6 +50,8 @@ export default function ResourcesPage() {
   );
 
   const [addOpen, setAddOpen] = React.useState(false);
+  const [editRes, setEditRes] = React.useState<ResourceEditing | null>(null);
+  const [editOpen, setEditOpen] = React.useState(false);
   const [statusF, setStatusF] = React.useState("");
   const [deptF, setDeptF] = React.useState("");
   const [billableOnly, setBillableOnly] = React.useState(false);
@@ -90,6 +95,20 @@ export default function ResourcesPage() {
     },
     { id: "wd", header: "Working Days", enableColumnFilter: false, cell: ({ row }) => <WorkingDayChips days={row.original.workingDays} /> },
     { accessorKey: "status", header: "Status", cell: ({ getValue }) => <StatusBadge status={getValue() as string} /> },
+    {
+      id: "actions",
+      header: "Actions",
+      enableColumnFilter: false,
+      cell: ({ row }) => (
+        <div onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant="ghost" onClick={() => {
+            const r = row.original;
+            setEditRes({ id: r.id, employeeNumber: r.employeeNumber, name: r.name, title: r.title, departmentId: r.departmentId, costCentreId: r.costCentreId, isBillable: r.isBillable });
+            setEditOpen(true);
+          }}><Pencil size={12} /></Button>
+        </div>
+      ),
+    },
   ];
 
   const s = data?.summary;
@@ -140,6 +159,7 @@ export default function ResourcesPage() {
       />
 
       <ResourceForm open={addOpen} onOpenChange={setAddOpen} onSaved={() => mutate()} />
+      <ResourceEditModal open={editOpen} onOpenChange={setEditOpen} resource={editRes} onSaved={() => mutate()} />
     </PageShell>
   );
 }

@@ -73,6 +73,7 @@ export async function GET(req: Request) {
       id: d.id,
       name: d.name,
       category: d.category,
+      headId: d.headId ?? null,
       headName: d.head?.name ?? null,
       activeResourceCount: activeResources.length,
       services: d.services.map((s) => s.code),

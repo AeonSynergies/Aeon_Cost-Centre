@@ -45,6 +45,7 @@ export async function GET(req: Request) {
       title: r.title,
       departmentId: r.departmentId,
       departmentName: r.department.name,
+      costCentreId: r.costCentreId,
       costCentreName: r.costCentre.name,
       isBillable: r.isBillable,
       joinedDate: r.joinedDate,
