@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, ArrowLeftRight } from "lucide-react";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,20 +18,24 @@ import { RevisionModal } from "@/components/resources/RevisionModal";
 import { ChangeStatusModal } from "@/components/resources/ChangeStatusModal";
 import { AssetModal, type AssetEditing } from "@/components/resources/AssetModal";
 import { AssignmentModal } from "@/components/resources/AssignmentModal";
+import { TransferModal, type TransferTarget } from "@/components/resources/TransferModal";
+import { ExtraCostModal, type ExtraCostEditing } from "@/components/resources/ExtraCostModal";
 import { apiGet, apiSend } from "@/lib/api-client";
+import { toast } from "@/store/toastStore";
 import { useOpsStore } from "@/store/filterStore";
 import { formatInr, formatUsd, formatDate } from "@/lib/utils";
 
 interface Revision { id: string; effectiveFrom: string; baseSalary: number; incentive: number; allowance: number; workingDays: number[]; dailyWorkHours: number }
 type Asset = AssetEditing;
+type ExtraCost = ExtraCostEditing;
 interface Assignment { id: string; client: { id: string; name: string }; service: { id: string; code: string; name: string }; assignedFrom: string; assignedTo: string | null }
 interface ResourceData {
   id: string; employeeNumber: string; name: string; title: string; isBillable: boolean; status: string;
   joinedDate: string; terminatedDate: string | null; laptopCostInr: number | null; laptopIssueDate: string | null; overheadManual: number | null;
   department: { id: string; name: string }; costCentre: { id: string; name: string; ms365RateInr: number; zoomRateUsd: number };
-  revisions: Revision[]; assets: Asset[]; assignments: Assignment[];
+  revisions: Revision[]; assets: Asset[]; extraCosts: ExtraCost[]; assignments: Assignment[];
 }
-interface Cost { baseSalary: number; incentive: number; allowance: number; overhead: number; laptopAmortised: number; ms365Cost: number; zoomCost: number; totalCostInr: number; totalCostUsd: number }
+interface Cost { baseSalary: number; incentive: number; allowance: number; overhead: number; laptopAmortised: number; ms365Cost: number; zoomCost: number; extraMonthly: number; totalCostInr: number; totalCostUsd: number }
 
 export default function ResourceDetail({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -77,52 +81,58 @@ export default function ResourceDetail({ params }: { params: { id: string } }) {
 
         <TabsContent value="salary">
           {r && cost && (
-            <div className="grid gap-3 lg:grid-cols-2">
-              <Card className="p-4">
-                <SectionTitle>Current Revision</SectionTitle>
-                {latestRev ? (
+            <>
+              <div className="mb-3 flex items-center justify-between">
+                <SectionTitle>Salary &amp; Schedule</SectionTitle>
+                <Button size="sm" onClick={() => setRevOpen(true)}><Plus size={13} /> Add Revision</Button>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <Card className="p-4">
+                  <SectionTitle>Current Revision</SectionTitle>
+                  {latestRev ? (
+                    <dl className="mt-2 space-y-1 text-[12px]">
+                      <KV k="Effective From" v={formatDate(latestRev.effectiveFrom)} />
+                      <KV k="Base Salary" v={formatInr(latestRev.baseSalary)} />
+                      <KV k="Incentive" v={formatInr(latestRev.incentive)} />
+                      <KV k="Allowance" v={formatInr(latestRev.allowance)} />
+                      <KV k="Daily Hours" v={String(latestRev.dailyWorkHours)} />
+                      <div className="flex justify-between"><dt className="text-[#94A3B8]">Working Days</dt><dd><WorkingDayChips days={latestRev.workingDays} /></dd></div>
+                    </dl>
+                  ) : <p className="mt-2 text-[12px] text-[#64748B]">No revisions.</p>}
+                </Card>
+
+                <Card className="p-4">
+                  <SectionTitle>Cost Breakdown (period)</SectionTitle>
                   <dl className="mt-2 space-y-1 text-[12px]">
-                    <KV k="Effective From" v={formatDate(latestRev.effectiveFrom)} />
-                    <KV k="Base Salary" v={formatInr(latestRev.baseSalary)} />
-                    <KV k="Incentive" v={formatInr(latestRev.incentive)} />
-                    <KV k="Allowance" v={formatInr(latestRev.allowance)} />
-                    <KV k="Daily Hours" v={String(latestRev.dailyWorkHours)} />
-                    <div className="flex justify-between"><dt className="text-[#94A3B8]">Working Days</dt><dd><WorkingDayChips days={latestRev.workingDays} /></dd></div>
+                    <KV k="Base Salary" v={formatInr(cost.baseSalary)} />
+                    <KV k="Incentive" v={formatInr(cost.incentive)} />
+                    <KV k="Allowance" v={formatInr(cost.allowance)} />
+                    <KV k="Overhead" v={formatInr(cost.overhead)} />
+                    <KV k="MS365" v={formatInr(cost.ms365Cost)} />
+                    <KV k="Zoom" v={formatInr(cost.zoomCost)} />
+                    <KV k="Laptop (amortised)" v={formatInr(cost.laptopAmortised)} />
+                    <KV k="Extra Costs (monthly)" v={formatInr(cost.extraMonthly)} />
+                    <div className="flex justify-between border-t border-[#E8ECF4] pt-1 font-semibold"><dt>Total Cost</dt><dd>{formatInr(cost.totalCostInr)} <span className="text-[#94A3B8]">({formatUsd(cost.totalCostUsd)})</span></dd></div>
                   </dl>
-                ) : <p className="mt-2 text-[12px] text-[#64748B]">No revisions.</p>}
-                <div className="mt-3"><Button size="sm" variant="secondary" onClick={() => setRevOpen(true)}><Plus size={13} /> Add Revision</Button></div>
-              </Card>
+                </Card>
 
-              <Card className="p-4">
-                <SectionTitle>Cost Breakdown (period)</SectionTitle>
-                <dl className="mt-2 space-y-1 text-[12px]">
-                  <KV k="Base Salary" v={formatInr(cost.baseSalary)} />
-                  <KV k="Incentive" v={formatInr(cost.incentive)} />
-                  <KV k="Allowance" v={formatInr(cost.allowance)} />
-                  <KV k="Overhead" v={formatInr(cost.overhead)} />
-                  <KV k="MS365" v={formatInr(cost.ms365Cost)} />
-                  <KV k="Zoom" v={formatInr(cost.zoomCost)} />
-                  <KV k="Laptop (amortised)" v={formatInr(cost.laptopAmortised)} />
-                  <div className="flex justify-between border-t border-[#E8ECF4] pt-1 font-semibold"><dt>Total Cost</dt><dd>{formatInr(cost.totalCostInr)} <span className="text-[#94A3B8]">({formatUsd(cost.totalCostUsd)})</span></dd></div>
-                </dl>
-              </Card>
-
-              <Card className="p-4 lg:col-span-2">
-                <SectionTitle>Revision History</SectionTitle>
-                <table className="mt-2 w-full text-[12px]">
-                  <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Effective From</th><th>Base (₹)</th><th>Incentive</th><th>Allowance</th><th>Working Days</th><th>Hrs/Day</th></tr></thead>
-                  <tbody>
-                    {r.revisions.map((rev) => (
-                      <tr key={rev.id} className="border-b border-[#E8ECF4]">
-                        <td className="py-2">{formatDate(rev.effectiveFrom)}</td>
-                        <td>{formatInr(rev.baseSalary)}</td><td>{formatInr(rev.incentive)}</td><td>{formatInr(rev.allowance)}</td>
-                        <td><WorkingDayChips days={rev.workingDays} /></td><td>{rev.dailyWorkHours}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </Card>
-            </div>
+                <Card className="p-4 lg:col-span-2">
+                  <SectionTitle>Revision History</SectionTitle>
+                  <table className="mt-2 w-full text-[12px]">
+                    <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Effective From</th><th>Base (₹)</th><th>Incentive</th><th>Allowance</th><th>Working Days</th><th>Hrs/Day</th></tr></thead>
+                    <tbody>
+                      {r.revisions.map((rev) => (
+                        <tr key={rev.id} className="border-b border-[#E8ECF4]">
+                          <td className="py-2">{formatDate(rev.effectiveFrom)}</td>
+                          <td>{formatInr(rev.baseSalary)}</td><td>{formatInr(rev.incentive)}</td><td>{formatInr(rev.allowance)}</td>
+                          <td><WorkingDayChips days={rev.workingDays} /></td><td>{rev.dailyWorkHours}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Card>
+              </div>
+            </>
           )}
         </TabsContent>
 
@@ -131,7 +141,13 @@ export default function ResourceDetail({ params }: { params: { id: string } }) {
         <TabsContent value="assignments">{r && <AssignmentsTab resourceId={params.id} assignments={r.assignments} onSaved={refresh} />}</TabsContent>
       </Tabs>
 
-      <RevisionModal open={revOpen} onOpenChange={setRevOpen} resourceId={params.id} onSaved={refresh} />
+      <RevisionModal
+        open={revOpen}
+        onOpenChange={setRevOpen}
+        resourceId={params.id}
+        latest={latestRev ? { baseSalary: latestRev.baseSalary, incentive: latestRev.incentive, allowance: latestRev.allowance, workingDays: latestRev.workingDays, dailyWorkHours: latestRev.dailyWorkHours } : undefined}
+        onSaved={refresh}
+      />
       {r && <ChangeStatusModal open={statusOpen} onOpenChange={setStatusOpen} resource={{ id: r.id, status: r.status, isBillable: r.isBillable, activeAssignments }} onSaved={refresh} />}
     </div>
   );
@@ -145,7 +161,7 @@ function ProfileTab({ resource, onSaved }: { resource: ResourceData; onSaved: ()
   const { data: ref } = useReference();
   const [form, setForm] = React.useState({ name: resource.name, title: resource.title, departmentId: resource.department.id, costCentreId: resource.costCentre.id, isBillable: resource.isBillable });
   const [saving, setSaving] = React.useState(false);
-  const save = async () => { setSaving(true); try { await apiSend(`/api/resources/${resource.id}`, "PATCH", form); onSaved(); } finally { setSaving(false); } };
+  const save = async () => { setSaving(true); try { await apiSend(`/api/resources/${resource.id}`, "PATCH", form); toast("Profile updated"); onSaved(); } finally { setSaving(false); } };
   return (
     <Card className="max-w-2xl p-4">
       <div className="grid grid-cols-2 gap-3">
@@ -163,38 +179,74 @@ function ProfileTab({ resource, onSaved }: { resource: ResourceData; onSaved: ()
 function ExtraCostsTab({ resource, onSaved }: { resource: ResourceData; onSaved: () => void }) {
   const [laptop, setLaptop] = React.useState(resource.laptopCostInr ?? 0);
   const [issueDate, setIssueDate] = React.useState(resource.laptopIssueDate?.slice(0, 10) ?? "");
+  const [savingLaptop, setSavingLaptop] = React.useState(false);
   const [manual, setManual] = React.useState<boolean>(resource.overheadManual != null);
   const [overhead, setOverhead] = React.useState(resource.overheadManual ?? 0);
-  const [saving, setSaving] = React.useState(false);
+  const [savingOverhead, setSavingOverhead] = React.useState(false);
+  const [costOpen, setCostOpen] = React.useState(false);
+  const [editingCost, setEditingCost] = React.useState<ExtraCostEditing | null>(null);
 
-  const save = async () => {
-    setSaving(true);
-    try {
-      await apiSend(`/api/resources/${resource.id}`, "PATCH", {
-        laptopCostInr: laptop || null,
-        laptopIssueDate: issueDate || null,
-        overheadManual: manual ? Number(overhead) : null,
-      });
-      onSaved();
-    } finally { setSaving(false); }
+  const saveLaptop = async () => {
+    setSavingLaptop(true);
+    try { await apiSend(`/api/resources/${resource.id}`, "PATCH", { laptopCostInr: laptop || null, laptopIssueDate: issueDate || null }); toast("Laptop cost saved"); onSaved(); }
+    finally { setSavingLaptop(false); }
   };
+  const saveOverhead = async () => {
+    setSavingOverhead(true);
+    try { await apiSend(`/api/resources/${resource.id}`, "PATCH", { overheadManual: manual ? Number(overhead) : null }); toast("Overhead saved"); onSaved(); }
+    finally { setSavingOverhead(false); }
+  };
+  const delCost = async (id: string) => { await apiSend(`/api/resources/${resource.id}/extra-costs/${id}`, "DELETE"); toast("Extra cost removed"); onSaved(); };
 
   return (
-    <div className="grid max-w-2xl gap-3">
-      <Card className="p-4">
+    <div className="grid gap-3">
+      <Card className="max-w-2xl p-4">
         <SectionTitle>Laptop</SectionTitle>
         <div className="mt-2 grid grid-cols-2 gap-3">
           <div><Label>Total Cost (₹)</Label><Input type="number" value={laptop} onChange={(e) => setLaptop(Number(e.target.value))} /></div>
           <div><Label>Issue Date</Label><Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} /></div>
         </div>
-        <p className="mt-2 text-[12px] text-[#64748B]">Monthly amortised: <span className="font-semibold">{formatInr(laptop / 36)}</span> (÷36 months)</p>
+        <div className="mt-2 flex items-center justify-between">
+          <p className="text-[12px] text-[#64748B]">Monthly Amortised: <span className="font-semibold">{formatInr(laptop / 36)}</span>/month</p>
+          <Button size="sm" onClick={saveLaptop} disabled={savingLaptop}>{savingLaptop ? "Saving…" : "Save"}</Button>
+        </div>
       </Card>
-      <Card className="p-4">
+
+      <Card className="max-w-2xl p-4">
         <SectionTitle>Overhead</SectionTitle>
-        <div className="mt-2 flex items-center gap-2"><Switch checked={manual} onCheckedChange={setManual} /><span className="text-[13px]">{manual ? "Manual override" : "Auto (10% of salary)"}</span></div>
-        {manual && <div className="mt-2 w-48"><Label>Manual Overhead (₹)</Label><Input type="number" value={overhead} onChange={(e) => setOverhead(Number(e.target.value))} /></div>}
+        <div className="mt-2 flex items-center gap-2"><Switch checked={manual} onCheckedChange={setManual} /><span className="text-[13px]">{manual ? "Manual override" : "Auto (10% of base salary)"}</span></div>
+        {manual && <div className="mt-2 w-48"><Label>Manual Overhead (₹/month)</Label><Input type="number" value={overhead} onChange={(e) => setOverhead(Number(e.target.value))} /></div>}
+        <div className="mt-2 flex justify-end"><Button size="sm" onClick={saveOverhead} disabled={savingOverhead}>{savingOverhead ? "Saving…" : "Save"}</Button></div>
       </Card>
-      <div className="flex justify-end"><Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button></div>
+
+      <Card className="p-4">
+        <div className="flex items-center justify-between">
+          <SectionTitle>Extra Costs</SectionTitle>
+          <Button size="sm" onClick={() => { setEditingCost(null); setCostOpen(true); }}><Plus size={13} /> Add Extra Cost</Button>
+        </div>
+        <table className="mt-2 w-full text-[12px]">
+          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Description</th><th>Category</th><th>Amount (₹)</th><th>Frequency</th><th>From</th><th>To</th><th></th></tr></thead>
+          <tbody>
+            {resource.extraCosts.length === 0 && <tr><td colSpan={7} className="py-4 text-center text-[#94A3B8]">No extra costs.</td></tr>}
+            {resource.extraCosts.map((c) => (
+              <tr key={c.id} className="border-b border-[#E8ECF4]">
+                <td className="py-2 font-medium">{c.description}</td>
+                <td>{c.category}</td>
+                <td>{formatInr(c.amountInr)}</td>
+                <td>{c.frequency === "MONTHLY" ? "Monthly" : "One-time"}</td>
+                <td>{formatDate(c.effectiveFrom)}</td>
+                <td>{formatDate(c.effectiveTo)}</td>
+                <td className="flex gap-1 py-1">
+                  <Button size="sm" variant="ghost" onClick={() => { setEditingCost(c); setCostOpen(true); }}><Pencil size={12} /></Button>
+                  <Button size="sm" variant="ghost" onClick={() => delCost(c.id)}><Trash2 size={12} /></Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+
+      <ExtraCostModal open={costOpen} onOpenChange={setCostOpen} resourceId={resource.id} editing={editingCost} onSaved={onSaved} />
     </div>
   );
 }
@@ -225,24 +277,36 @@ function AssetsTab({ resourceId, assets, onSaved }: { resourceId: string; assets
 
 function AssignmentsTab({ resourceId, assignments, onSaved }: { resourceId: string; assignments: Assignment[]; onSaved: () => void }) {
   const [open, setOpen] = React.useState(false);
+  const [transferOpen, setTransferOpen] = React.useState(false);
+  const [target, setTarget] = React.useState<TransferTarget | null>(null);
+  const isActive = (a: Assignment) => !a.assignedTo || new Date(a.assignedTo) >= new Date();
+
   return (
     <div>
       <div className="mb-2 flex justify-end"><Button onClick={() => setOpen(true)}><Plus size={14} /> Assign to Client</Button></div>
       <Card className="p-4">
         <table className="w-full text-[12px]">
-          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Client</th><th>Service</th><th>From</th><th>To</th><th>Status</th></tr></thead>
+          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Client</th><th>Service</th><th>From</th><th>To</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             {assignments.map((a) => (
               <tr key={a.id} className="border-b border-[#E8ECF4]">
                 <td className="py-2 font-medium">{a.client.name}</td><td className="font-mono text-[11px]">{a.service.code}</td>
                 <td>{formatDate(a.assignedFrom)}</td><td>{formatDate(a.assignedTo)}</td>
-                <td><StatusBadge status={a.assignedTo && new Date(a.assignedTo) < new Date() ? "TERMED" : "ACTIVE"} /></td>
+                <td><StatusBadge status={isActive(a) ? "ACTIVE" : "TERMED"} /></td>
+                <td>
+                  {isActive(a) && (
+                    <Button size="sm" variant="ghost" onClick={() => { setTarget({ assignmentId: a.id, resourceId, clientName: a.client.name, serviceLabel: `${a.service.code} — ${a.service.name}` }); setTransferOpen(true); }}>
+                      <ArrowLeftRight size={12} /> Transfer
+                    </Button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </Card>
       <AssignmentModal open={open} onOpenChange={setOpen} resourceId={resourceId} onSaved={onSaved} />
+      <TransferModal open={transferOpen} onOpenChange={setTransferOpen} target={target} onSaved={onSaved} />
     </div>
   );
 }

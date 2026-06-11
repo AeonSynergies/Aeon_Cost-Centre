@@ -36,6 +36,8 @@ export function isResourceActive(
   return true;
 }
 
+type ExtraCost = { frequency: string; amountInr: number; effectiveFrom: Date; effectiveTo: Date | null };
+
 type ResourceForCost = {
   joinedDate: Date;
   terminatedDate: Date | null;
@@ -43,7 +45,19 @@ type ResourceForCost = {
   laptopCostInr: number | null;
   revisions: Array<{ effectiveFrom: Date; baseSalary: number; incentive: number; allowance: number }>;
   costCentre: { ms365RateInr: number; zoomRateUsd: number };
+  extraCosts?: ExtraCost[];
 };
+
+/** Sum of MONTHLY extra costs active during the period. */
+export function activeMonthlyExtraInr(extraCosts: ExtraCost[] | undefined, period: Period): number {
+  if (!extraCosts) return 0;
+  const periodEnd = new Date(period.year, period.month, 0);
+  const periodStart = new Date(period.year, period.month - 1, 1);
+  return extraCosts
+    .filter((c) => c.frequency === "MONTHLY")
+    .filter((c) => c.effectiveFrom <= periodEnd && (!c.effectiveTo || c.effectiveTo >= periodStart))
+    .reduce((s, c) => s + c.amountInr, 0);
+}
 
 /** Latest revision whose effectiveFrom is on/before the end of the period. */
 function activeRevision<T extends { effectiveFrom: Date }>(
@@ -88,6 +102,7 @@ export function computeResourceCost(
     zoomRateUsd: resource.costCentre.zoomRateUsd,
     rateB: rates.rateB,
     rateD: rates.rateD,
+    extraMonthlyInr: activeMonthlyExtraInr(resource.extraCosts, period),
   });
 }
 

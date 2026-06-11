@@ -102,6 +102,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ...(d.routeBand !== undefined ? { routeBand: d.routeBand || null } : {}),
     },
   });
+  // Auto-trigger: when a client is given an end date, close its active
+  // assignments on that date.
+  if (d.endDate !== undefined && updated.endDate) {
+    await prisma.resourceAssignment.updateMany({
+      where: {
+        clientId: params.id,
+        OR: [{ assignedTo: null }, { assignedTo: { gt: updated.endDate } }],
+      },
+      data: { assignedTo: updated.endDate },
+    });
+  }
+
   await writeAudit({ userId: u.user.id, entity: "Client", entityId: updated.id, action: "UPDATE", before, after: updated });
   return NextResponse.json({ data: updated });
 }

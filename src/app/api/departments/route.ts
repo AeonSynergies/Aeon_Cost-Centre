@@ -38,7 +38,7 @@ export async function GET(req: Request) {
         head: { select: { id: true, name: true } },
         services: { select: { id: true, code: true } },
         resources: {
-          include: { revisions: true, costCentre: true },
+          include: { revisions: true, costCentre: true, extraCosts: true },
         },
       },
     }),
@@ -90,7 +90,7 @@ export async function GET(req: Request) {
 
 const createSchema = z.object({
   name: z.string().min(1),
-  category: z.enum(["CLIENT_FACING", "BUSINESS_DEVELOPMENT", "PRODUCT_DEVELOPMENT"]),
+  category: z.enum(["CLIENT_FACING", "ADMINISTRATION", "BUSINESS_DEVELOPMENT", "INTERNAL", "SAAS_DEVELOPMENT"]),
   headId: z.string().optional().nullable(),
 });
 

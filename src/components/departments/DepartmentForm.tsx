@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogBody, DialogFooter } from "@/components/ui
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { useReference } from "@/hooks/useReference";
+import { DEPT_CATEGORY_OPTIONS } from "@/components/common/StatusBadge";
 import { apiSend } from "@/lib/api-client";
 
 export function DepartmentForm({ open, onOpenChange, onSaved }: { open: boolean; onOpenChange: (o: boolean) => void; onSaved: () => void }) {
@@ -32,9 +33,7 @@ export function DepartmentForm({ open, onOpenChange, onSaved }: { open: boolean;
             <div className="col-span-2"><Label>Department Name</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
             <div><Label>Category</Label>
               <Select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
-                <option value="CLIENT_FACING">Client-facing</option>
-                <option value="BUSINESS_DEVELOPMENT">Business Development</option>
-                <option value="PRODUCT_DEVELOPMENT">Product Development</option>
+                {DEPT_CATEGORY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </Select>
             </div>
             <div><Label>Head</Label>

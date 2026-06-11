@@ -24,6 +24,8 @@ export function calculateFullyLoadedCost(params: {
   zoomRateUsd: number;
   rateB: number; // USD expense -> INR
   rateD: number; // INR -> USD display
+  /** Sum of active recurring (MONTHLY) extra costs in INR. Optional. */
+  extraMonthlyInr?: number;
 }): {
   baseSalary: number;
   incentive: number;
@@ -32,6 +34,7 @@ export function calculateFullyLoadedCost(params: {
   laptopAmortised: number;
   ms365Cost: number;
   zoomCost: number;
+  extraMonthly: number;
   totalCostInr: number;
   totalCostUsd: number;
 } {
@@ -47,6 +50,7 @@ export function calculateFullyLoadedCost(params: {
     zoomRateUsd,
     rateB,
     rateD,
+    extraMonthlyInr = 0,
   } = params;
 
   const overhead =
@@ -67,7 +71,8 @@ export function calculateFullyLoadedCost(params: {
     overhead +
     laptopAmortised +
     ms365Cost +
-    zoomCost;
+    zoomCost +
+    extraMonthlyInr;
 
   const totalCostUsd = inrToUsdDisplay(totalCostInr, rateD, 0);
 
@@ -79,6 +84,7 @@ export function calculateFullyLoadedCost(params: {
     laptopAmortised,
     ms365Cost,
     zoomCost,
+    extraMonthly: extraMonthlyInr,
     totalCostInr,
     totalCostUsd,
   };

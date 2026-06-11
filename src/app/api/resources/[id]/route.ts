@@ -26,6 +26,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       costCentre: { select: { id: true, name: true, ms365RateInr: true, zoomRateUsd: true } },
       revisions: { orderBy: { effectiveFrom: "desc" } },
       assets: { orderBy: { issueDate: "desc" } },
+      extraCosts: { orderBy: { effectiveFrom: "desc" } },
       assignments: {
         include: {
           client: { select: { id: true, name: true } },
