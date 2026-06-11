@@ -53,7 +53,7 @@ export function DataTable<T>({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] border border-[#E8ECF4] bg-white shadow-sm">
       <div className="min-h-0 flex-1 overflow-auto">
-        <table className="w-full border-collapse">
+        <table className="w-full min-w-max border-collapse">
           <thead className="sticky top-0 z-10 bg-[#F8F9FC]">
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id} className="border-b border-[#E8ECF4]">

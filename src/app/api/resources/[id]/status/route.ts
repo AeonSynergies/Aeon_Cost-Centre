@@ -36,7 +36,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   let data: Record<string, unknown> = {};
-  if (body.type === "TERMINATION") data = { terminatedDate: new Date(body.effectiveDate) };
+  // Termination also forces billable -> false (a terminated resource cannot be billable).
+  if (body.type === "TERMINATION") data = { terminatedDate: new Date(body.effectiveDate), isBillable: false };
+  // Reactivation only clears the termination date; billable stays as-is (deliberate decision).
   else if (body.type === "REACTIVATION") data = { terminatedDate: null };
   else data = { isBillable: body.isBillable };
 
@@ -55,14 +57,23 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     });
   }
 
+  const auditAfter =
+    body.type === "TERMINATION"
+      ? {
+          terminatedDate: body.effectiveDate,
+          isBillable: false,
+          note: "Billable status automatically set to Non-billable on termination",
+        }
+      : updated;
+
   await writeAudit({
     userId: u.user.id,
     entity: "Resource",
     entityId: params.id,
     resourceId: params.id,
-    action: `STATUS_${body.type}`,
+    action: body.type === "TERMINATION" ? "TERMINATED" : `STATUS_${body.type}`,
     before,
-    after: updated,
+    after: auditAfter,
   });
   return NextResponse.json({ data: updated });
 }

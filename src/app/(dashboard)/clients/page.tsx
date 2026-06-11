@@ -7,6 +7,7 @@ import { Plus, Briefcase, Pencil, XCircle, ListChecks } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PageShell, Stat } from "@/components/common/PageShell";
 import { FilterBar, FilterSelect } from "@/components/common/FilterBar";
+import { StatusPills } from "@/components/common/StatusPills";
 import { DataTable } from "@/components/common/DataTable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,7 @@ export default function ClientsPage() {
   const router = useRouter();
   const { periodYear, periodMonth } = useOpsStore();
   const { data, isLoading, mutate } = useSWR<{ data: Row[]; summary: Record<string, number> }>(`/api/clients?year=${periodYear}&month=${periodMonth}`, apiGet);
-  const [statusF, setStatusF] = React.useState("");
+  const [statusF, setStatusF] = React.useState("active");
   const [methodF, setMethodF] = React.useState("");
   const [pkgF, setPkgF] = React.useState("");
   const [editClient, setEditClient] = React.useState<ClientEditData | null>(null);
@@ -39,8 +40,16 @@ export default function ClientsPage() {
   const [svcId, setSvcId] = React.useState<string | null>(null);
   const [svcOpen, setSvcOpen] = React.useState(false);
 
-  const rows = (data?.data ?? []).filter((r) => {
-    if (statusF && r.status !== statusF) return false;
+  const all = data?.data ?? [];
+  const statusCounts = {
+    all: all.length,
+    active: all.filter((r) => r.status === "ACTIVE").length,
+    churned: all.filter((r) => r.status === "CHURNED").length,
+    ending: all.filter((r) => r.status === "ENDING").length,
+  };
+  const STATUS_MAP: Record<string, string> = { active: "ACTIVE", churned: "CHURNED", ending: "ENDING" };
+  const rows = all.filter((r) => {
+    if (statusF !== "all" && r.status !== STATUS_MAP[statusF]) return false;
     if (methodF && r.paymentMethod !== methodF) return false;
     if (pkgF && !r.packages.includes(pkgF)) return false;
     return true;
@@ -86,7 +95,16 @@ export default function ClientsPage() {
       actions={<Button onClick={() => router.push("/clients/new")}><Plus size={14} /> Add Client</Button>}
       filterBar={
         <FilterBar>
-          <FilterSelect value={statusF} onChange={setStatusF} placeholder="All Status" options={[{ value: "ACTIVE", label: "Active" }, { value: "ENDING", label: "Ending" }, { value: "CHURNED", label: "Churned" }]} />
+          <StatusPills
+            value={statusF}
+            onChange={setStatusF}
+            options={[
+              { value: "all", label: "All", count: statusCounts.all },
+              { value: "active", label: "Active", count: statusCounts.active },
+              { value: "ending", label: "Ending Soon", count: statusCounts.ending },
+              { value: "churned", label: "Churned", count: statusCounts.churned },
+            ]}
+          />
           <FilterSelect value={methodF} onChange={setMethodF} placeholder="All Methods" options={[{ value: "CARD", label: "Card" }, { value: "ACH", label: "ACH" }]} />
           <FilterSelect value={pkgF} onChange={setPkgF} placeholder="All Packages" options={[{ value: "LESS_THAN_25", label: "< 25 Routes" }, { value: "MORE_THAN_25", label: "> 25 Routes" }]} />
         </FilterBar>

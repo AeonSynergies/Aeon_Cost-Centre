@@ -6,6 +6,7 @@ import { Plus, Pencil, Shield } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PageShell } from "@/components/common/PageShell";
 import { FilterBar, FilterSelect } from "@/components/common/FilterBar";
+import { StatusPills } from "@/components/common/StatusPills";
 import { DataTable } from "@/components/common/DataTable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,13 +25,20 @@ const ROLE_TONE: Record<string, "info" | "purple" | "warning" | "neutral"> = { A
 export default function UsersPage() {
   const { data, isLoading, mutate } = useSWR<{ data: Row[] }>("/api/admin/users", apiGet);
   const [roleF, setRoleF] = React.useState("");
-  const [statusF, setStatusF] = React.useState("");
+  const [statusF, setStatusF] = React.useState("active");
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Row | null>(null);
 
-  const rows = (data?.data ?? []).filter((r) => {
+  const all = data?.data ?? [];
+  const statusCounts = {
+    all: all.length,
+    active: all.filter((r) => r.isActive).length,
+    inactive: all.filter((r) => !r.isActive).length,
+  };
+  const rows = all.filter((r) => {
     if (roleF && r.role !== roleF) return false;
-    if (statusF && (statusF === "active") !== r.isActive) return false;
+    if (statusF === "active" && !r.isActive) return false;
+    if (statusF === "inactive" && r.isActive) return false;
     return true;
   });
 
@@ -60,8 +68,16 @@ export default function UsersPage() {
       actions={<Button onClick={() => { setEditing(null); setOpen(true); }}><Plus size={14} /> Add User</Button>}
       filterBar={
         <FilterBar>
+          <StatusPills
+            value={statusF}
+            onChange={setStatusF}
+            options={[
+              { value: "all", label: "All", count: statusCounts.all },
+              { value: "active", label: "Active", count: statusCounts.active },
+              { value: "inactive", label: "Inactive", count: statusCounts.inactive },
+            ]}
+          />
           <FilterSelect value={roleF} onChange={setRoleF} placeholder="All Roles" options={["ADMIN", "MANAGER", "FINANCE", "VIEWER"].map((r) => ({ value: r, label: r }))} />
-          <FilterSelect value={statusF} onChange={setStatusF} placeholder="All Status" options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }]} />
         </FilterBar>
       }
     >
