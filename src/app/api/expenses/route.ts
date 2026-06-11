@@ -20,19 +20,22 @@ export async function GET(req: Request) {
     orderBy: { createdAt: "desc" },
   });
 
-  const [depts, ccs, users] = await Promise.all([
+  const [depts, ccs, users, clients] = await Promise.all([
     prisma.department.findMany({ select: { id: true, name: true } }),
     prisma.costCentre.findMany({ select: { id: true, name: true } }),
     prisma.user.findMany({ select: { id: true, name: true } }),
+    prisma.client.findMany({ select: { id: true, name: true } }),
   ]);
   const deptMap = new Map(depts.map((d) => [d.id, d.name]));
   const ccMap = new Map(ccs.map((c) => [c.id, c.name]));
   const userMap = new Map(users.map((x) => [x.id, x.name]));
+  const clientMap = new Map(clients.map((c) => [c.id, c.name]));
 
   const data = expenses.map((e) => ({
     ...e,
     departmentName: e.departmentId ? deptMap.get(e.departmentId) ?? null : null,
     costCentreName: e.costCentreId ? ccMap.get(e.costCentreId) ?? null : null,
+    clientName: e.clientId ? clientMap.get(e.clientId) ?? null : null,
     addedByName: userMap.get(e.addedById) ?? "—",
   }));
 
@@ -56,6 +59,11 @@ const schema = z.object({
   description: z.string().min(1),
   departmentId: z.string().nullable().optional(),
   costCentreId: z.string().nullable().optional(),
+  clientId: z.string().nullable().optional(),
+  isBillable: z.boolean().optional(),
+  toolName: z.string().nullable().optional(),
+  rate: z.number().min(0).nullable().optional(),
+  seats: z.number().min(0).nullable().optional(),
   amountUsd: z.number().min(0).nullable().optional(),
   amountInr: z.number().min(0).nullable().optional(),
   conversionRate: z.number().min(0).nullable().optional(),
@@ -88,6 +96,11 @@ export async function POST(req: Request) {
       description: d.description,
       departmentId: d.departmentId || null,
       costCentreId: d.costCentreId || null,
+      clientId: d.clientId || null,
+      isBillable: d.isBillable ?? false,
+      toolName: d.toolName || null,
+      rate: d.rate ?? null,
+      seats: d.seats ?? null,
       amountUsd: d.currency === "USD" ? d.amountUsd ?? 0 : null,
       amountInr,
       conversionRate,

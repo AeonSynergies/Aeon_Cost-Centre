@@ -36,6 +36,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       utilisationLogs: {
         include: { resource: { select: { id: true, name: true } } },
       },
+      expenses: { orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }] },
     },
   });
   if (!client) return NextResponse.json({ error: "Not found" }, { status: 404 });

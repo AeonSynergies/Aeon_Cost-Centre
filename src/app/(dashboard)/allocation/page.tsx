@@ -4,16 +4,15 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { ChevronRight, ChevronDown } from "lucide-react";
-import { PageShell, Stat } from "@/components/common/PageShell";
+import { PageShell } from "@/components/common/PageShell";
 import { FilterBar } from "@/components/common/FilterBar";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { KpiCard } from "@/components/common/KpiCard";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { CodeBadges } from "@/components/common/StatusBadge";
+
 import { apiGet } from "@/lib/api-client";
 import { useOpsStore } from "@/store/filterStore";
-import { formatInr, formatPeriod } from "@/lib/utils";
+import { formatInr } from "@/lib/utils";
 
 const MONTH_INDEX: Record<string, number> = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
 
@@ -23,21 +22,24 @@ type DeptSummary = {
   buckets: { key: string; pct: number; budget: number; actual: number }[];
   monthly: { month: string; netRevenueInr: number; deptReserveInr: number; bdBudget: number; bdActual: number; productBudget: number; productActual: number; profitBudget: number; profitActual: number; status: string }[];
 };
-type ResRow = { resourceId: string; resource: string; employeeNumber: string; department: string; clients: number; services: string[]; revenueInr: number; allottedInr: number; costInr: number; surplusInr: number; marginPct: number };
 
 export default function AllocationPage() {
-  const { periodYear, periodMonth } = useOpsStore();
+  const { periodYear } = useOpsStore();
+  const [year, setYear] = React.useState(periodYear);
 
   return (
-    <PageShell title="Allocation" filterBar={<FilterBar />}>
-      <Tabs defaultValue="dept" className="flex min-h-0 flex-1 flex-col">
-        <TabsList>
-          <TabsTrigger value="dept">Department Allocation</TabsTrigger>
-          <TabsTrigger value="resource">Resource Allocation</TabsTrigger>
-        </TabsList>
-        <TabsContent value="dept"><DeptTab year={periodYear} /></TabsContent>
-        <TabsContent value="resource"><ResourceTab year={periodYear} month={periodMonth} /></TabsContent>
-      </Tabs>
+    <PageShell
+      title="Allocation"
+      filterBar={
+        <FilterBar period={false}>
+          <span className="text-[12px] text-[#64748B]">Year</span>
+          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="h-[30px] rounded-[7px] border border-[#E8ECF4] bg-white px-2 text-[12px] outline-none focus:border-[#3266AD]">
+            {[2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </FilterBar>
+      }
+    >
+      <DeptTab year={year} />
     </PageShell>
   );
 }
@@ -115,39 +117,3 @@ function ExpandedRow({ year, month, onClient }: { year: number; month: number; o
   );
 }
 
-function ResourceTab({ year, month }: { year: number; month: number }) {
-  const router = useRouter();
-  const { data } = useSWR<{ data: ResRow[]; summary: Record<string, number> }>(`/api/allocation/resources?year=${year}&month=${month}`, apiGet);
-  const s = data?.summary;
-
-  return (
-    <>
-      <div className="mb-1 text-[12px] text-[#64748B]">Showing {formatPeriod(year, month)} — change month via the period selector.</div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="Revenue Generated" value={s ? formatInr(s.revenueInr) : "—"} />
-        <Stat label="50% Allotted" value={s ? formatInr(s.allottedInr) : "—"} />
-        <Stat label="Total Cost" value={s ? formatInr(s.costInr) : "—"} />
-        <Stat label="Net Margin" value={s ? formatInr(s.netMarginInr) : "—"} />
-        <Stat label="Avg Margin %" value={s ? `${s.avgMarginPct.toFixed(0)}%` : "—"} />
-      </div>
-
-      <Card className="mt-3 overflow-auto p-4">
-        <table className="w-full whitespace-nowrap text-[12px]">
-          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Resource</th><th>Emp ID</th><th>Department</th><th>Clients</th><th>Services</th><th>Revenue (₹)</th><th>50% Allotted (₹)</th><th>Cost (₹)</th><th>Surplus (₹)</th><th>Margin %</th></tr></thead>
-          <tbody>
-            {data?.data.length === 0 && <tr><td colSpan={10} className="py-4 text-center text-[#94A3B8]">No billable resources.</td></tr>}
-            {data?.data.map((r) => (
-              <tr key={r.resourceId} className="cursor-pointer border-b border-[#E8ECF4] tabular-nums hover:bg-[#F8F9FC]" onClick={() => router.push(`/resources/${r.resourceId}`)}>
-                <td className="py-2 font-medium">{r.resource}</td>
-                <td className="font-mono text-[11px] text-[#94A3B8]">{r.employeeNumber}</td>
-                <td>{r.department}</td><td>{r.clients}</td><td><CodeBadges codes={r.services} /></td>
-                <td>{formatInr(r.revenueInr)}</td><td>{formatInr(r.allottedInr)}</td><td>{formatInr(r.costInr)}</td>
-                <td className={surplusColor(r.surplusInr)}>{formatInr(r.surplusInr)}</td><td>{r.marginPct.toFixed(0)}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-    </>
-  );
-}

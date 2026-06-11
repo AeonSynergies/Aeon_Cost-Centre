@@ -85,8 +85,14 @@ export async function GET(req: Request) {
   const deptPnl = departments.map((d) => {
     const revenue = d.services.reduce((s, svc) => s + (serviceNetByService.get(svc.id) ?? 0), 0);
     const cost = wfByDeptCost.get(d.id) ?? 0;
-    return { id: d.id, name: d.name, resources: countByDept.get(d.id) ?? 0, costInr: cost, surplusInr: calculateDeptRevenueShare(revenue) - cost };
+    return { id: d.id, name: d.name, resources: countByDept.get(d.id) ?? 0, revenueInr: revenue, costInr: cost, surplusInr: calculateDeptRevenueShare(revenue) - cost };
   });
+
+  // Dept charts (moved from Department Analysis): Cost vs Revenue + Workforce Cost Split.
+  const costRevByDept = deptPnl.map((d) => ({ name: d.name, cost: Math.round(d.costInr), revenue: Math.round(d.revenueInr) }));
+  const workforceSplit = deptPnl
+    .filter((d) => d.costInr > 0)
+    .map((d, i) => ({ name: d.name, value: Math.round(d.costInr), color: ["#3266AD", "#1D9E75", "#7F77DD", "#BA7517", "#D4537E", "#D85A30"][i % 6] }));
 
   // Top clients by net revenue.
   const topClients = core.clients
@@ -113,7 +119,7 @@ export async function GET(req: Request) {
     financial: { totalServiceCostUsd, grossRevenueUsd, netRevenueUsd, netRevenueInr, totalExpensesInr, netProfitInr, abbieRoyaltyUsd, reserveFundUsd },
     operations: { activeClients: activeClients.length, mrrUsd, activeResources: active.length, billableResources: active.filter((r) => r.isBillable).length },
     cost: { salaryInr, fullyLoadedInr, toolInr, overheadInr },
-    charts: { revVsExp, allocation },
+    charts: { revVsExp, allocation, costRevByDept, workforceSplit },
     deptPnl, topClients, alerts,
     rates: core.rates,
   });

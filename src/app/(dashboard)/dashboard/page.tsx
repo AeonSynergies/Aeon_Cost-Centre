@@ -20,7 +20,7 @@ type Overview = {
   financial: { totalServiceCostUsd: number; grossRevenueUsd: number; netRevenueUsd: number; netRevenueInr: number; totalExpensesInr: number; netProfitInr: number; abbieRoyaltyUsd: number; reserveFundUsd: number };
   operations: { activeClients: number; mrrUsd: number; activeResources: number; billableResources: number };
   cost: { salaryInr: number; fullyLoadedInr: number; toolInr: number; overheadInr: number };
-  charts: { revVsExp: { month: string; revenue: number; expenses: number; future: boolean }[]; allocation: { totalInr: number; segments: { name: string; value: number; color: string }[] } };
+  charts: { revVsExp: { month: string; revenue: number; expenses: number; future: boolean }[]; allocation: { totalInr: number; segments: { name: string; value: number; color: string }[] }; costRevByDept: { name: string; cost: number; revenue: number }[]; workforceSplit: { name: string; value: number; color: string }[] };
   deptPnl: { id: string; name: string; resources: number; costInr: number; surplusInr: number }[];
   topClients: { id: string; name: string; services: string[]; monthlyFeeUsd: number; netRevenueInr: number }[];
   alerts: { id: string; name: string; department: string; utilisationPct: number; status: string }[];
@@ -105,6 +105,39 @@ export default function DashboardPage() {
               <PieChart>
                 <Pie data={data?.charts.allocation.segments ?? []} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={2}>
                   {data?.charts.allocation.segments.map((s, i) => <Cell key={i} fill={s.color} />)}
+                </Pie>
+                <Tooltip contentStyle={{ background: "#0F1629", border: "none", borderRadius: 8, color: "#fff", fontSize: 12 }} formatter={(x: number) => formatInr(x)} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Card className="p-4">
+          <SectionTitle>Cost vs Revenue by Department</SectionTitle>
+          <div className="mt-3 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={data?.charts.costRevByDept ?? []}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#64748B" }} interval={0} angle={-15} textAnchor="end" height={50} />
+                <YAxis tick={{ fontSize: 11, fill: "#64748B" }} width={66} tickFormatter={(x) => `₹${(x / 1000).toFixed(0)}k`} />
+                <Tooltip contentStyle={{ background: "#0F1629", border: "none", borderRadius: 8, color: "#fff", fontSize: 12 }} formatter={(x: number) => formatInr(x)} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="revenue" name="Revenue" fill="#1D9E75" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="cost" name="Cost" fill="#D85A30" radius={[3, 3, 0, 0]} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <SectionTitle>Workforce Cost Split</SectionTitle>
+          <div className="mt-3 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={data?.charts.workforceSplit ?? []} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={2}>
+                  {data?.charts.workforceSplit.map((s, i) => <Cell key={i} fill={s.color} />)}
                 </Pie>
                 <Tooltip contentStyle={{ background: "#0F1629", border: "none", borderRadius: 8, color: "#fff", fontSize: 12 }} formatter={(x: number) => formatInr(x)} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />

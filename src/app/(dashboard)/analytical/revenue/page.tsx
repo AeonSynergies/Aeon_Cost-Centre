@@ -6,6 +6,7 @@ import useSWR from "swr";
 import { ChevronRight } from "lucide-react";
 import { PageShell } from "@/components/common/PageShell";
 import { FilterBar, FilterSelect } from "@/components/common/FilterBar";
+import { StatusPills } from "@/components/common/StatusPills";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge, CodeBadges } from "@/components/common/StatusBadge";
@@ -34,7 +35,8 @@ export default function RevenueAnalyticsPage() {
   const { data: ref } = useReference();
   const [clientId, setClientId] = React.useState("");
   const [method, setMethod] = React.useState("");
-  const { data } = useSWR<{ waterfall: Waterfall; rows: Row[] }>(`/api/analytical/revenue?year=${periodYear}&month=${periodMonth}&clientId=${clientId}&method=${method}`, apiGet);
+  const [status, setStatus] = React.useState("");
+  const { data } = useSWR<{ waterfall: Waterfall; rows: Row[] }>(`/api/analytical/revenue?year=${periodYear}&month=${periodMonth}&clientId=${clientId}&method=${method}&status=${status}`, apiGet);
 
   const w = data?.waterfall;
   const tsc = w?.totalServiceCostUsd || 1;
@@ -62,6 +64,7 @@ export default function RevenueAnalyticsPage() {
       title="Revenue Analysis"
       filterBar={
         <FilterBar>
+          <StatusPills value={status} onChange={setStatus} options={[{ value: "", label: "All" }, { value: "DRAFT", label: "Draft" }, { value: "FINALISED", label: "Finalised" }]} />
           <FilterSelect value={clientId} onChange={setClientId} placeholder="All Clients" options={(ref?.clients ?? []).map((c) => ({ value: c.id, label: c.name }))} />
           <FilterSelect value={method} onChange={setMethod} placeholder="All Methods" options={[{ value: "CARD", label: "Card" }, { value: "ACH", label: "ACH" }]} />
         </FilterBar>

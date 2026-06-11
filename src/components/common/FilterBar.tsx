@@ -1,35 +1,46 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { useOpsStore, type DateRange } from "@/store/filterStore";
+import { useOpsStore } from "@/store/filterStore";
 
-const RANGES: DateRange[] = ["Week", "Month", "Quarter", "Year", "Till Date", "Custom"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /**
- * Standard filter bar shell: date-range pills (wired to the global store) plus
- * a slot for screen-specific filters (department, cost centre, status, etc.).
+ * Period filter: Month + Year dropdowns wired to the global store. Replaces the
+ * old date-range pills. Place anywhere a period scope is needed.
  */
-export function FilterBar({ children }: { children?: React.ReactNode }) {
-  const { dateRange, setDateRange } = useOpsStore();
+export function PeriodFilter() {
+  const { periodYear, periodMonth, setPeriod } = useOpsStore();
+  const years = [2025, 2026, 2027];
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        value={periodMonth}
+        onChange={(e) => setPeriod(periodYear, Number(e.target.value))}
+        className="h-[30px] rounded-[7px] border border-[#E8ECF4] bg-white px-2 text-[12px] text-[#0F1629] outline-none focus:border-[#3266AD]"
+        aria-label="Month"
+      >
+        {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+      </select>
+      <select
+        value={periodYear}
+        onChange={(e) => setPeriod(Number(e.target.value), periodMonth)}
+        className="h-[30px] rounded-[7px] border border-[#E8ECF4] bg-white px-2 text-[12px] text-[#0F1629] outline-none focus:border-[#3266AD]"
+        aria-label="Year"
+      >
+        {years.map((y) => <option key={y} value={y}>{y}</option>)}
+      </select>
+    </div>
+  );
+}
 
+/**
+ * Standard filter bar shell: a Month/Year period selector plus a slot for
+ * screen-specific filters (department, cost centre, status, etc.).
+ */
+export function FilterBar({ children, period = true }: { children?: React.ReactNode; period?: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-[#E8ECF4] bg-white px-5 py-2.5">
-      <div className="flex items-center gap-0.5 rounded-[7px] bg-[#F1F5F9] p-0.5">
-        {RANGES.map((r) => (
-          <button
-            key={r}
-            onClick={() => setDateRange(r)}
-            className={cn(
-              "rounded-[5px] px-2.5 py-1 text-[11px] font-medium transition-colors",
-              dateRange === r
-                ? "bg-white text-[#0F1629] shadow-sm"
-                : "text-[#64748B] hover:text-[#0F1629]"
-            )}
-          >
-            {r}
-          </button>
-        ))}
-      </div>
+      {period && <PeriodFilter />}
       {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </div>
   );

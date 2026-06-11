@@ -24,6 +24,7 @@ type Detail = {
     billingRecords: { id: string; periodYear: number; periodMonth: number; proratedFeeUsd: number; discountUsd: number; stripeFeeUsd: number; grossRevenueUsd: number; netRevenueUsd: number; netRevenueInr: number; status: string }[];
     assignments: { id: string; resource: { id: string; name: string; isBillable: boolean }; service: { id: string; code: string; name: string }; assignedFrom: string; assignedTo: string | null }[];
     utilisationLogs: { id: string; resource: { id: string; name: string }; dailyTxnVolume: number; routesRan: number; fleetInvoice: boolean; marshInvoice: boolean; adocHoursPerDay: number; serviceHoursPerDay: number; invoiceHoursPerDay: number; totalHoursPerDay: number; utilisationPct: number; monthlyHours: number; revenueShareInr: number }[];
+    expenses: { id: string; periodYear: number; periodMonth: number; currency: string; category: string; description: string; amountUsd: number | null; amountInr: number | null; isBillable: boolean }[];
   };
   metrics: { monthlyFeeUsd: number; monthlyFeeInr: number; waterfall: { grossRevenueUsd: number; netRevenueUsd: number; netRevenueInr: number } };
 };
@@ -149,6 +150,28 @@ export default function ClientDetail({ params }: { params: { id: string } }) {
               </table>
             ) : (
               <div className="py-10 text-center text-[13px] text-[#64748B]">No billing records yet. Generate from the Billing page.</div>
+            )}
+          </Card>
+
+          <Card className="mt-3 p-4">
+            <SectionTitle>Client Expenses</SectionTitle>
+            {c?.expenses && c.expenses.length > 0 ? (
+              <div className="mt-2 max-h-[320px] overflow-auto">
+                <table className="w-full whitespace-nowrap text-[12px]">
+                  <thead><tr className="text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Period</th><th>Description</th><th>Category</th><th>Amount</th><th>Currency</th><th>Billable</th></tr></thead>
+                  <tbody>
+                    {c.expenses.map((e) => (
+                      <tr key={e.id} className="border-b border-[#E8ECF4]">
+                        <td className="py-2">{e.periodMonth}/{e.periodYear}</td><td>{e.description}</td><td>{e.category}</td>
+                        <td>{e.currency === "USD" ? formatUsd(e.amountUsd ?? 0) : formatInr(e.amountInr ?? 0)}</td><td><Badge tone="info">{e.currency}</Badge></td>
+                        <td><Badge tone={e.isBillable ? "success" : "neutral"}>{e.isBillable ? "Yes" : "No"}</Badge></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="py-6 text-center text-[12px] text-[#94A3B8]">No client expenses. Add them from the Expenses page.</div>
             )}
           </Card>
         </TabsContent>

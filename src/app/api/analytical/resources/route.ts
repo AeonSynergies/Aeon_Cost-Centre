@@ -39,6 +39,7 @@ export async function GET(req: Request) {
   if (departmentId) resources = resources.filter((r) => r.departmentId === departmentId);
   if (status) resources = resources.filter((r) => (isResourceActive(r, period) ? "ACTIVE" : "TERMED") === status);
   if (billable === "true") resources = resources.filter((r) => r.isBillable);
+  else if (billable === "false") resources = resources.filter((r) => !r.isBillable);
 
   const rows = resources.map((r) => {
     const cost = computeResourceCost(r, core.config, period);
@@ -86,5 +87,12 @@ export async function GET(req: Request) {
   }
   void clientActive;
 
-  return NextResponse.json({ kpi, rows, assignments });
+  const assignKpi = {
+    total: assignments.length,
+    clients: new Set(assignments.map((a) => a.clientId as string)).size,
+    revShareInr: assignments.reduce((s, a) => s + (a.revenueShareInr as number), 0),
+    avgUtilPct: assignments.length ? assignments.reduce((s, a) => s + (a.utilisationPct as number), 0) / assignments.length : 0,
+  };
+
+  return NextResponse.json({ kpi, rows, assignments, assignKpi });
 }
