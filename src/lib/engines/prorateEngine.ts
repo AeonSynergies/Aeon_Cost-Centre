@@ -59,8 +59,9 @@ function activeDaysInPeriod(
 
 /**
  * Prorate a client's monthly fee for the given period.
- * LEGACY: full monthly fee if active for any day in the month (no proration).
- * NEW:    day-accurate proration of first/last partial months.
+ * Day-accurate proration of first/last partial months for ALL billing types —
+ * a full month yields the full fee (activeDays == daysInMonth). The billingType
+ * param is retained for signature stability but no longer changes proration.
  */
 export function prorateClientFee(params: {
   monthlyFee: number;
@@ -79,7 +80,6 @@ export function prorateClientFee(params: {
   );
 
   if (activeDays <= 0) return 0;
-  if (params.billingType === "LEGACY") return params.monthlyFee;
   return (params.monthlyFee * activeDays) / daysInMonth;
 }
 

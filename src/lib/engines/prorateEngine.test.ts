@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { prorateClientFee, prorateResourceSalary } from "./prorateEngine";
 
 describe("prorateEngine - client fee", () => {
-  it("LEGACY bills the full monthly fee when active any day in the month", () => {
+  it("prorates the first partial month day-accurately for LEGACY too", () => {
+    // 10 Nov 2025 -> 30 Nov = 21 active days of 30 (proration applies to all types now).
     expect(
       prorateClientFee({
         monthlyFee: 300,
@@ -12,7 +13,7 @@ describe("prorateEngine - client fee", () => {
         periodYear: 2025,
         periodMonth: 11,
       })
-    ).toBe(300);
+    ).toBeCloseTo((300 * 21) / 30, 6);
   });
 
   it("NEW prorates the first partial month by days active", () => {
