@@ -24,6 +24,7 @@ import { ExtraCostModal, type ExtraCostEditing } from "@/components/resources/Ex
 import { ResourceEditModal, type ResourceEditing } from "@/components/resources/ResourceEditModal";
 import { AssignmentEditModal, type AssignmentEditing } from "@/components/resources/AssignmentEditModal";
 import { RevisionEditModal, type RevisionEditing } from "@/components/resources/RevisionEditModal";
+import { UtilBar } from "@/components/common/UtilBar";
 import { apiGet, apiSend } from "@/lib/api-client";
 import { toast } from "@/store/toastStore";
 import { useOpsStore } from "@/store/filterStore";
@@ -44,7 +45,7 @@ interface Cost { baseSalary: number; incentive: number; allowance: number; overh
 export default function ResourceDetail({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { periodYear, periodMonth } = useOpsStore();
-  const { data, mutate } = useSWR<{ data: ResourceData; cost: Cost }>(`/api/resources/${params.id}?year=${periodYear}&month=${periodMonth}`, apiGet);
+  const { data, mutate } = useSWR<{ data: ResourceData; cost: Cost; utilByClient: Record<string, number> }>(`/api/resources/${params.id}?year=${periodYear}&month=${periodMonth}`, apiGet);
   const r = data?.data;
   const cost = data?.cost;
   const [statusOpen, setStatusOpen] = React.useState(false);
@@ -149,7 +150,7 @@ export default function ResourceDetail({ params }: { params: { id: string } }) {
 
         <TabsContent value="extra">{r && <ExtraCostsTab resource={r} onSaved={refresh} />}</TabsContent>
         <TabsContent value="assets">{r && <AssetsTab resourceId={params.id} assets={r.assets} onSaved={refresh} />}</TabsContent>
-        <TabsContent value="assignments">{r && <AssignmentsTab resourceId={params.id} assignments={r.assignments} onSaved={refresh} />}</TabsContent>
+        <TabsContent value="assignments">{r && <AssignmentsTab resourceId={params.id} assignments={r.assignments} utilByClient={data?.utilByClient ?? {}} onSaved={refresh} />}</TabsContent>
       </Tabs>
 
       <RevisionModal
@@ -296,7 +297,7 @@ function AssetsTab({ resourceId, assets, onSaved }: { resourceId: string; assets
   );
 }
 
-function AssignmentsTab({ resourceId, assignments, onSaved }: { resourceId: string; assignments: Assignment[]; onSaved: () => void }) {
+function AssignmentsTab({ resourceId, assignments, utilByClient, onSaved }: { resourceId: string; assignments: Assignment[]; utilByClient: Record<string, number>; onSaved: () => void }) {
   const [open, setOpen] = React.useState(false);
   const [transferOpen, setTransferOpen] = React.useState(false);
   const [target, setTarget] = React.useState<TransferTarget | null>(null);
@@ -318,12 +319,13 @@ function AssignmentsTab({ resourceId, assignments, onSaved }: { resourceId: stri
       </div>
       <Card className="p-4">
         <table className="w-full text-[12px]">
-          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Client</th><th>Service</th><th>From</th><th>To</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Client</th><th>Service</th><th>From</th><th>To</th><th>Utilisation</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             {shown.map((a) => (
               <tr key={a.id} className="border-b border-[#E8ECF4]">
                 <td className="py-2 font-medium">{a.client.name}</td><td className="font-mono text-[11px]">{a.service.code}</td>
                 <td>{formatDate(a.assignedFrom)}</td><td>{formatDate(a.assignedTo)}</td>
+                <td>{utilByClient[a.client.id] !== undefined ? <UtilBar pct={utilByClient[a.client.id]} /> : <span className="text-[#94A3B8]">—</span>}</td>
                 <td><StatusBadge status={isActive(a) ? "ACTIVE" : "TERMED"} /></td>
                 <td className="flex gap-1 py-1">
                   <Button size="sm" variant="ghost" onClick={() => { setEditAssign({ id: a.id, resourceId, clientName: a.client.name, serviceLabel: `${a.service.code} — ${a.service.name}`, assignedFrom: a.assignedFrom, assignedTo: a.assignedTo }); setEditAssignOpen(true); }}><Pencil size={12} /></Button>

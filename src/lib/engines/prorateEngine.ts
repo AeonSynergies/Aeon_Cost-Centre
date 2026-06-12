@@ -84,6 +84,52 @@ export function prorateClientFee(params: {
 }
 
 /**
+ * Prorate a client's monthly fee for the period, day-accurate, while honouring
+ * mid-month fee revisions. Each day contributes (applicableRevision.fee /
+ * daysInMonth) for every day the client is active in the period.
+ *
+ * Example: revisions [$200 from Jan 1, $300 from May 15], period May 2026 (31d):
+ *   May 1–14  (14d) @ $200 -> 200 × 14/31 = 90.32
+ *   May 15–31 (17d) @ $300 -> 300 × 17/31 = 164.52
+ *   total = $254.84
+ */
+export function prorateClientFeeWithRevisions(params: {
+  revisions: Array<{ monthlyFeeUsd: number; effectiveFrom: Date }>;
+  startDate: Date;
+  endDate: Date | null;
+  periodYear: number;
+  periodMonth: number;
+  billingType: BillingType;
+}): number {
+  const { revisions, startDate, periodYear, periodMonth } = params;
+  if (revisions.length === 0) return 0;
+
+  const end = normaliseEnd(params.endDate);
+  const { days } = periodBounds(periodYear, periodMonth);
+  const sorted = [...revisions].sort(
+    (a, b) => startOfDay(a.effectiveFrom).getTime() - startOfDay(b.effectiveFrom).getTime()
+  );
+  const start = startOfDay(startDate);
+  const e = end ? startOfDay(end) : null;
+
+  let total = 0;
+  for (let d = 1; d <= days; d++) {
+    const day = new Date(periodYear, periodMonth - 1, d);
+    if (day < start) continue;
+    if (e && day > e) continue;
+
+    let applicable: { monthlyFeeUsd: number; effectiveFrom: Date } | null = null;
+    for (const rev of sorted) {
+      if (startOfDay(rev.effectiveFrom) <= day) applicable = rev;
+      else break;
+    }
+    if (!applicable) continue;
+    total += applicable.monthlyFeeUsd / days;
+  }
+  return total;
+}
+
+/**
  * Prorate a resource's monthly base salary for the period, day-accurate, and
  * handling mid-month salary revisions. Each revision's baseSalary is a monthly
  * figure; a day contributes (applicableRevision.baseSalary / daysInMonth).

@@ -10,7 +10,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   if ("error" in u) return u.error;
   const record = await prisma.billingRecord.findUnique({
     where: { id: params.id },
-    include: { client: { select: { id: true, name: true, billingType: true, paymentMethod: true } } },
+    include: { client: { select: { id: true, name: true, billingType: true, paymentMethod: true, txnFeeEnabled: true } } },
   });
   if (!record) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ data: record });

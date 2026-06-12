@@ -29,9 +29,46 @@ export async function GET(req: Request) {
   const departments = await prisma.department.findMany({
     include: {
       head: { select: { id: true, name: true } },
-      services: { select: { id: true, code: true } },
+      services: { select: { id: true, code: true, costCentreId: true } },
     },
   });
+
+  // Department-level expenses (tool + client costs) for the period.
+  // Attribution: serviceId -> that service's dept; else clientId -> split by the
+  // client's service fee weight across depts; else costCentreId -> split equally
+  // across depts owning a service in that cost centre.
+  const expenses = await prisma.expense.findMany({ where: { periodYear: period.year, periodMonth: period.month } });
+  const svcDeptById = new Map<string, string>();
+  const deptsByCostCentre = new Map<string, Set<string>>();
+  for (const d of departments) for (const svc of d.services) {
+    svcDeptById.set(svc.id, d.id);
+    if (svc.costCentreId) {
+      const set = deptsByCostCentre.get(svc.costCentreId) ?? new Set<string>();
+      set.add(d.id);
+      deptsByCostCentre.set(svc.costCentreId, set);
+    }
+  }
+  const clientServiceWeights = new Map<string, { deptId: string; weight: number }[]>();
+  for (const c of core.clients) {
+    const total = c.services.reduce((s, x) => s + x.monthlyFeeUsd, 0);
+    if (total <= 0) continue;
+    clientServiceWeights.set(c.id, c.services.map((cs) => ({ deptId: cs.service.departmentId, weight: cs.monthlyFeeUsd / total })));
+  }
+  const expenseByDept = new Map<string, number>();
+  const addDeptExpense = (deptId: string, amt: number) => expenseByDept.set(deptId, (expenseByDept.get(deptId) ?? 0) + amt);
+  for (const e of expenses) {
+    const amt = e.amountInr ?? 0;
+    if (amt === 0) continue;
+    if (e.serviceId && svcDeptById.has(e.serviceId)) {
+      addDeptExpense(svcDeptById.get(e.serviceId)!, amt);
+    } else if (e.clientId && clientServiceWeights.has(e.clientId)) {
+      for (const w of clientServiceWeights.get(e.clientId)!) addDeptExpense(w.deptId, amt * w.weight);
+    } else if (e.costCentreId && deptsByCostCentre.has(e.costCentreId)) {
+      const set = deptsByCostCentre.get(e.costCentreId)!;
+      const share = amt / set.size;
+      for (const deptId of set) addDeptExpense(deptId, share);
+    }
+  }
 
   // Workforce cost per dept.
   const wfByDept = new Map<string, number>();
@@ -46,7 +83,8 @@ export async function GET(req: Request) {
     const revenue = d.services.reduce((s, svc) => s + (serviceNetByService.get(svc.id) ?? 0), 0);
     const reserve = calculateDeptRevenueShare(revenue);
     const workforce = wfByDept.get(d.id) ?? 0;
-    const total = workforce;
+    const toolAndClientCost = expenseByDept.get(d.id) ?? 0;
+    const total = workforce + toolAndClientCost;
     const surplus = reserve - total;
     return {
       id: d.id, name: d.name, category: d.category, head: d.head?.name ?? null,
@@ -55,7 +93,7 @@ export async function GET(req: Request) {
       revenueInr: revenue, revenueUsd: inrToUsdDisplay(revenue, rateD, 0),
       deptReserveInr: reserve,
       workforceCostInr: workforce, workforceCostUsd: inrToUsdDisplay(workforce, rateD, 0),
-      toolCostInr: 0,
+      toolCostInr: toolAndClientCost,
       totalDeptCostInr: total, totalDeptCostUsd: inrToUsdDisplay(total, rateD, 0),
       surplusInr: surplus, surplusUsd: inrToUsdDisplay(surplus, rateD, 0),
       marginPct: revenue > 0 ? (surplus / revenue) * 100 : 0,

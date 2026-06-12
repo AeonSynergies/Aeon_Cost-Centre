@@ -42,7 +42,7 @@ export async function GET(req: Request) {
     .filter((c) => (!clientId || c.id === clientId) && (!method || c.paymentMethod === method))
     .map((c) => {
       const wf = computeClientWaterfall(
-        { startDate: c.startDate, endDate: c.endDate, billingType: c.billingType, paymentMethod: c.paymentMethod, services: c.services },
+        { startDate: c.startDate, endDate: c.endDate, billingType: c.billingType, paymentMethod: c.paymentMethod, txnFeeEnabled: c.txnFeeEnabled, services: c.services },
         core.config, period
       );
       return {

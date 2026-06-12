@@ -69,6 +69,7 @@ model Resource {
   laptopCostInr  Float?
   laptopIssueDate DateTime?
   overheadManual Float?
+  overheadEnabled Boolean?  // null = use global setting
   revisions      ResourceRevision[]
   assets         ResourceAsset[]
   extraCosts     ResourceExtraCost[]
@@ -168,6 +169,7 @@ model Service {
   clientServices ClientService[]
   assignments  ResourceAssignment[]
   utilisationTiers UtilisationTier[]
+  expenses     Expense[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -230,6 +232,7 @@ model Client {
   endDate       DateTime?
   billingType   BillingType
   paymentMethod PaymentMethod
+  txnFeeEnabled Boolean       @default(true)
   driverBand    String?
   vanBand       String?
   routeBand     String?
@@ -263,8 +266,21 @@ model ClientService {
   monthlyFeeUsd Float
   discountMode  DiscountMode @default(PER_PACKAGE)
   discountPct   Float       @default(0)
+  revisions     ClientServiceRevision[]
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+}
+
+model ClientServiceRevision {
+  id              String        @id @default(cuid())
+  clientServiceId String
+  clientService   ClientService @relation(fields: [clientServiceId], references: [id])
+  monthlyFeeUsd   Float
+  effectiveFrom   DateTime
+  createdBy       String?
+  createdAt       DateTime      @default(now())
+
+  @@index([clientServiceId, effectiveFrom])
 }
 
 enum DiscountMode {
@@ -371,6 +387,8 @@ model Expense {
   costCentreId String?
   clientId     String?
   client       Client?     @relation(fields: [clientId], references: [id])
+  serviceId    String?
+  service      Service?    @relation(fields: [serviceId], references: [id])
   isBillable   Boolean     @default(false)
   toolName     String?
   rate         Float?
@@ -386,6 +404,7 @@ model Expense {
   @@index([costCentreId])
   @@index([departmentId])
   @@index([clientId])
+  @@index([serviceId])
 }
 
 enum Currency {

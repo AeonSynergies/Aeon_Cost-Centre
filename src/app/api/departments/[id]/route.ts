@@ -59,7 +59,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       const totalFee = c.services.reduce((s, x) => s + x.monthlyFeeUsd, 0);
       if (totalFee <= 0) continue;
       const wf = computeClientWaterfall(
-        { startDate: c.startDate, endDate: c.endDate, billingType: c.billingType, paymentMethod: c.paymentMethod, services: c.services },
+        { startDate: c.startDate, endDate: c.endDate, billingType: c.billingType, paymentMethod: c.paymentMethod, txnFeeEnabled: c.txnFeeEnabled, services: c.services },
         config,
         p
       );
@@ -82,7 +82,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const totalFee = c.services.reduce((s, x) => s + x.monthlyFeeUsd, 0);
     if (totalFee <= 0) continue;
     const wf = computeClientWaterfall(
-      { startDate: c.startDate, endDate: c.endDate, billingType: c.billingType, paymentMethod: c.paymentMethod, services: c.services },
+      { startDate: c.startDate, endDate: c.endDate, billingType: c.billingType, paymentMethod: c.paymentMethod, txnFeeEnabled: c.txnFeeEnabled, services: c.services },
       config,
       period
     );

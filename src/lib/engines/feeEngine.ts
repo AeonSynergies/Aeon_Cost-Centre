@@ -40,7 +40,7 @@ export interface RevenueWaterfall {
 
 /**
  * Stripe processing fee on a gross value.
- * Card: 2.5% + $0.30. ACH: 0.8% with a $5 minimum.
+ * Card: 2.5% + $0.30. ACH: 0.8% CAPPED at $5 (use the lesser of 0.8% and $5).
  */
 export function calculateStripeFee(
   grossValue: number,
@@ -51,18 +51,20 @@ export function calculateStripeFee(
     return grossValue * (config.stripe_card_pct / 100) + config.stripe_card_fixed;
   }
   const fee = grossValue * (config.stripe_ach_pct / 100);
-  return Math.max(fee, config.stripe_ach_min);
+  return Math.min(fee, config.stripe_ach_cap);
 }
 
 /**
  * Transaction fee added on top of the discounted fee.
- * Card: 4%. ACH: 1.5%.
+ * Card: 4%. ACH: 1.5%. Returns 0 when the client has txn fees disabled.
  */
 export function calculateTxnFee(
   discountedFee: number,
   method: PaymentMethod,
-  config: SystemConfigValues
+  config: SystemConfigValues,
+  txnFeeEnabled: boolean = true
 ): number {
+  if (!txnFeeEnabled) return 0;
   const pct =
     method === "CARD" ? config.card_txn_fee_pct : config.ach_txn_fee_pct;
   return discountedFee * (pct / 100);
@@ -74,14 +76,16 @@ export function calculateRevenueWaterfall(params: {
   discountPct: number;
   paymentMethod: PaymentMethod;
   config: SystemConfigValues;
+  txnFeeEnabled?: boolean;
 }): RevenueWaterfall {
   const { totalServiceCostUsd, proratedFeeUsd, discountPct, paymentMethod, config } =
     params;
+  const txnFeeEnabled = params.txnFeeEnabled ?? true;
 
   const discountUsd = proratedFeeUsd * (discountPct / 100);
   const discountedFeeUsd = proratedFeeUsd - discountUsd;
 
-  const txnFeeUsd = calculateTxnFee(discountedFeeUsd, paymentMethod, config);
+  const txnFeeUsd = calculateTxnFee(discountedFeeUsd, paymentMethod, config, txnFeeEnabled);
   const netServiceCostUsd = discountedFeeUsd + txnFeeUsd;
 
   const stripeFeeUsd = calculateStripeFee(netServiceCostUsd, paymentMethod, config);

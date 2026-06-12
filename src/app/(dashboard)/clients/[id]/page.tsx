@@ -19,7 +19,7 @@ import { formatUsd, formatInr, formatDate } from "@/lib/utils";
 type Detail = {
   data: {
     id: string; name: string; startDate: string; endDate: string | null;
-    billingType: string; paymentMethod: string; driverBand: string | null; vanBand: string | null; routeBand: string | null;
+    billingType: string; paymentMethod: string; txnFeeEnabled: boolean; driverBand: string | null; vanBand: string | null; routeBand: string | null;
     services: { id: string; packageType: string; monthlyFeeUsd: number; service: { id: string; code: string; name: string; department: { name: string } | null } }[];
     billingRecords: { id: string; periodYear: number; periodMonth: number; proratedFeeUsd: number; discountUsd: number; stripeFeeUsd: number; grossRevenueUsd: number; netRevenueUsd: number; netRevenueInr: number; status: string }[];
     assignments: { id: string; resource: { id: string; name: string; isBillable: boolean }; service: { id: string; code: string; name: string }; assignedFrom: string; assignedTo: string | null }[];
@@ -64,7 +64,7 @@ export default function ClientDetail({ params }: { params: { id: string } }) {
           <ClientEditModal
             open={editOpen}
             onOpenChange={setEditOpen}
-            client={{ id: c.id, name: c.name, startDate: c.startDate, endDate: c.endDate, paymentMethod: c.paymentMethod, billingType: c.billingType, driverBand: c.driverBand, vanBand: c.vanBand, routeBand: c.routeBand }}
+            client={{ id: c.id, name: c.name, startDate: c.startDate, endDate: c.endDate, paymentMethod: c.paymentMethod, billingType: c.billingType, txnFeeEnabled: c.txnFeeEnabled, driverBand: c.driverBand, vanBand: c.vanBand, routeBand: c.routeBand }}
             onSaved={() => mutate()}
           />
           <ClientTerminateModal open={termOpen} onOpenChange={setTermOpen} clientId={c.id} onSaved={() => mutate()} />

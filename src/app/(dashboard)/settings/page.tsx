@@ -26,6 +26,7 @@ const GENERAL = [
   { key: "working_days_per_month", label: "Default Working Days / Month" },
   { key: "available_hrs_per_day", label: "Available Hours / Day" },
   { key: "overhead_pct", label: "Default Overhead %" },
+  { key: "overhead_enabled", label: "Include Overhead (1 = on, 0 = off)" },
   { key: "laptop_amortisation_months", label: "Laptop Amortisation (months)" },
 ];
 const REVENUE = [
@@ -33,7 +34,7 @@ const REVENUE = [
   { key: "reserve_fund_pct", label: "Reserve Fund %" }, { key: "card_txn_fee_pct", label: "Card Transaction Fee %" },
   { key: "ach_txn_fee_pct", label: "ACH Transaction Fee %" }, { key: "stripe_card_pct", label: "Stripe Card %" },
   { key: "stripe_card_fixed", label: "Stripe Card Fixed Fee $" }, { key: "stripe_ach_pct", label: "Stripe ACH %" },
-  { key: "stripe_ach_min", label: "Stripe ACH Minimum $" },
+  { key: "stripe_ach_cap", label: "Stripe ACH Cap $" },
 ];
 
 export default function SettingsPage() {

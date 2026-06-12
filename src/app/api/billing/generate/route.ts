@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     if (c.endDate && new Date(c.endDate) < periodStart) { skipped++; continue; }
 
     const wf = computeClientWaterfall(
-      { startDate: c.startDate, endDate: c.endDate, billingType: c.billingType, paymentMethod: c.paymentMethod, services: c.services },
+      { startDate: c.startDate, endDate: c.endDate, billingType: c.billingType, paymentMethod: c.paymentMethod, txnFeeEnabled: c.txnFeeEnabled, services: c.services },
       config,
       period
     );

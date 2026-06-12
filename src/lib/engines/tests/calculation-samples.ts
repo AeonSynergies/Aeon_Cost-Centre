@@ -21,10 +21,11 @@ export const sample1 = {
 };
 
 export const sample2 = {
+  // ACH stripe fee is capped at $5: 2030 × 0.8% = 16.24 -> capped to $5.
   input: { totalServiceCostUsd: 2000, paymentMethod: "ACH" as const, discountPct: 0, proratedFeeUsd: 2000, config: cfg },
   expected: {
     discountUsd: 0, discountedFeeUsd: 2000, txnFeeUsd: 30, netServiceCostUsd: 2030,
-    stripeFeeUsd: 16.24, grossRevenueUsd: 2013.76, netRevenueUsd: 1510.32, netRevenueInr: 1480.1136 * 91,
+    stripeFeeUsd: 5, grossRevenueUsd: 2025, netRevenueUsd: 1518.75, netRevenueInr: 1488.375 * 91,
   },
 };
 
@@ -67,4 +68,17 @@ export const sample9_revenueShare = {
 export const sample10_clientTermination = {
   input: { monthlyFee: 1900, billingType: "LEGACY" as const, startDate: new Date(2025, 10, 10), endDate: new Date(2026, 4, 15), periodYear: 2026, periodMonth: 5 },
   expected: { proratedFee: (1900 * 15) / 31 }, // 919.35
+};
+
+export const sample11_clientFeeRevision = {
+  // Fee $200 from Jan 1, revised to $300 from May 15. May 2026 has 31 days.
+  // May 1-14 (14d) @ $200 -> 200×14/31 = 90.32 ; May 15-31 (17d) @ $300 -> 300×17/31 = 164.52
+  input: {
+    revisions: [
+      { monthlyFeeUsd: 200, effectiveFrom: new Date(2026, 0, 1) },
+      { monthlyFeeUsd: 300, effectiveFrom: new Date(2026, 4, 15) },
+    ],
+    startDate: new Date(2026, 0, 1), endDate: null, periodYear: 2026, periodMonth: 5, billingType: "LEGACY" as const,
+  },
+  expected: { proratedFee: (200 * 14) / 31 + (300 * 17) / 31 }, // 254.84
 };

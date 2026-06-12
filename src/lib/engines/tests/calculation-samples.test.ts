@@ -1,12 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { calculateRevenueWaterfall } from "@/lib/engines/feeEngine";
-import { prorateClientFee, prorateResourceSalary } from "@/lib/engines/prorateEngine";
+import { prorateClientFee, prorateClientFeeWithRevisions, prorateResourceSalary } from "@/lib/engines/prorateEngine";
 import { calculateFullyLoadedCost } from "@/lib/engines/costEngine";
 import { calculateResourceRevenueShare } from "@/lib/engines/revenueShareEngine";
 import { getServiceHours, getInvoiceHours, calculateUtilisation, DEFAULT_UTIL_TIERS } from "@/lib/engines/utilisationEngine";
 import {
   sample1, sample2, sample3_proration, sample4_salary, sample5_revision,
   sample6_termination, sample8_cost, sample9_revenueShare, sample10_clientTermination,
+  sample11_clientFeeRevision,
 } from "./calculation-samples";
 
 const inv = (routesRan: number, fleet: boolean, marsh: boolean) =>
@@ -92,5 +93,9 @@ describe("calculation samples", () => {
 
   it("sample 10 — mid-month client termination proration (919.35)", () => {
     expect(prorateClientFee(sample10_clientTermination.input)).toBeCloseTo(sample10_clientTermination.expected.proratedFee, 2);
+  });
+
+  it("sample 11 — mid-month client fee revision proration (254.84)", () => {
+    expect(prorateClientFeeWithRevisions(sample11_clientFeeRevision.input)).toBeCloseTo(sample11_clientFeeRevision.expected.proratedFee, 2);
   });
 });

@@ -34,6 +34,8 @@ export default function ExpensesPage() {
   const { periodYear, periodMonth } = useOpsStore();
   const { data, mutate } = useSWR<{ data: Expense[]; summary: Record<string, number> }>(`/api/expenses?year=${periodYear}&month=${periodMonth}`, apiGet);
   const [catF, setCatF] = React.useState("");
+  const [ccF, setCcF] = React.useState("");
+  const { data: ref } = useReference();
   const [open, setOpen] = React.useState(false);
   const [currency, setCurrency] = React.useState<"INR" | "USD">("INR");
   const [editing, setEditing] = React.useState<Expense | null>(null);
@@ -43,7 +45,8 @@ export default function ExpensesPage() {
   const [clientEditing, setClientEditing] = React.useState<Expense | null>(null);
   const [populating, setPopulating] = React.useState(false);
 
-  const all = data?.data ?? [];
+  const allRaw = data?.data ?? [];
+  const all = allRaw.filter((e) => !ccF || e.costCentreId === ccF);
   const isTool = (e: Expense) => e.category === "TOOL_COST";
   const isClient = (e: Expense) => !!e.clientId;
   const inr = all.filter((e) => e.currency === "INR" && !isTool(e) && !isClient(e) && (!catF || e.category === catF));
@@ -63,6 +66,7 @@ export default function ExpensesPage() {
       filterBar={
         <FilterBar>
           <FilterSelect value={catF} onChange={setCatF} placeholder="All Categories" options={[...new Set([...INR_CATEGORIES, ...USD_CATEGORIES])].map((c) => ({ value: c, label: c }))} />
+          <FilterSelect value={ccF} onChange={setCcF} placeholder="All Cost Centres" options={(ref?.costCentres ?? []).map((c) => ({ value: c.id, label: c.name }))} />
         </FilterBar>
       }
     >

@@ -17,8 +17,9 @@ export interface SystemConfigValues {
   stripe_card_pct: number;
   stripe_card_fixed: number;
   stripe_ach_pct: number;
-  stripe_ach_min: number;
+  stripe_ach_cap: number;
   overhead_pct: number;
+  overhead_enabled: number; // 1 = include overhead, 0 = exclude (stored as numeric scalar)
   working_days_per_month: number;
   available_hrs_per_day: number;
   laptop_amortisation_months: number;
@@ -38,8 +39,9 @@ export const DEFAULT_SYSTEM_CONFIG: SystemConfigValues = {
   stripe_card_pct: 2.5,
   stripe_card_fixed: 0.3,
   stripe_ach_pct: 0.8,
-  stripe_ach_min: 5.0,
+  stripe_ach_cap: 5.0,
   overhead_pct: 10,
+  overhead_enabled: 1,
   working_days_per_month: 22,
   available_hrs_per_day: 8,
   laptop_amortisation_months: 36,

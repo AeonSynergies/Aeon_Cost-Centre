@@ -20,7 +20,7 @@ import { useOpsStore } from "@/store/filterStore";
 import { formatUsd, formatInr, formatDate } from "@/lib/utils";
 
 type Row = {
-  id: string; name: string; billingType: string; paymentMethod: string;
+  id: string; name: string; billingType: string; paymentMethod: string; txnFeeEnabled: boolean;
   packages: string[]; services: string[]; startDate: string; endDate: string | null;
   driverBand: string | null; vanBand: string | null; routeBand: string | null;
   monthlyFeeUsd: number; monthlyFeeInr: number; totalRevenueUsd: number; totalRevenueInr: number; status: string;
@@ -56,14 +56,14 @@ export default function ClientsPage() {
   });
 
   const openEdit = (r: Row) => {
-    setEditClient({ id: r.id, name: r.name, startDate: r.startDate, endDate: r.endDate, paymentMethod: r.paymentMethod, billingType: r.billingType, driverBand: r.driverBand, vanBand: r.vanBand, routeBand: r.routeBand });
+    setEditClient({ id: r.id, name: r.name, startDate: r.startDate, endDate: r.endDate, paymentMethod: r.paymentMethod, billingType: r.billingType, txnFeeEnabled: r.txnFeeEnabled, driverBand: r.driverBand, vanBand: r.vanBand, routeBand: r.routeBand });
     setEditOpen(true);
   };
 
   const columns: ColumnDef<Row, unknown>[] = [
     { accessorKey: "name", header: "Client", cell: ({ getValue }) => <span className="font-semibold">{getValue() as string}</span> },
     { accessorKey: "billingType", header: "Billing", cell: ({ getValue }) => <Badge tone={getValue() === "LEGACY" ? "neutral" : "purple"}>{getValue() === "LEGACY" ? "Legacy" : "New"}</Badge> },
-    { accessorKey: "paymentMethod", header: "Method", cell: ({ getValue }) => <Badge tone="info">{getValue() as string}</Badge> },
+    { accessorKey: "paymentMethod", header: "Method", cell: ({ row }) => { const m = row.original.paymentMethod === "CARD" ? "Card" : "ACH"; return <Badge tone="info">{row.original.txnFeeEnabled ? `${m} + Txn` : `${m} (no txn)`}</Badge>; } },
     { id: "pkg", header: "Package", enableColumnFilter: false, cell: ({ row }) => row.original.packages.map((p) => (p === "LESS_THAN_25" ? "<25" : ">25")).join(", ") },
     { id: "services", header: "Services", enableColumnFilter: false, cell: ({ row }) => <CodeBadges codes={row.original.services} /> },
     { accessorKey: "startDate", header: "Start", enableColumnFilter: false, cell: ({ getValue }) => formatDate(getValue() as string) },
