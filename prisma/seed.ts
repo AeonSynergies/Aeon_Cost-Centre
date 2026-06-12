@@ -33,8 +33,9 @@ async function seedSystemConfig() {
     stripe_card_pct: 2.5,
     stripe_card_fixed: 0.3,
     stripe_ach_pct: 0.8,
-    stripe_ach_min: 5.0,
+    stripe_ach_cap: 5.0,
     overhead_pct: 10,
+    overhead_enabled: 1,
     working_days_per_month: 22,
     available_hrs_per_day: 8,
     laptop_amortisation_months: 36,
@@ -277,9 +278,25 @@ async function seedServices() {
         data: { serviceId: s.id, name, defaultExpectedHoursPerDay: 0 },
       });
     }
+
+    // Default utilisation tiers per service.
+    for (const t of DEFAULT_TIERS) {
+      await prisma.utilisationTier.upsert({
+        where: { serviceId_tierNumber_effectiveFrom: { serviceId: s.id, tierNumber: t.tierNumber, effectiveFrom: EFFECTIVE } },
+        update: { maxTxnVolume: t.maxTxnVolume, hoursPerDay: t.hoursPerDay },
+        create: { serviceId: s.id, tierNumber: t.tierNumber, maxTxnVolume: t.maxTxnVolume, hoursPerDay: t.hoursPerDay, effectiveFrom: EFFECTIVE },
+      });
+    }
   }
   return SERVICES.length;
 }
+
+const DEFAULT_TIERS = [
+  { tierNumber: 1, maxTxnVolume: 10, hoursPerDay: 0.1 },
+  { tierNumber: 2, maxTxnVolume: 15, hoursPerDay: 0.15 },
+  { tierNumber: 3, maxTxnVolume: 30, hoursPerDay: 0.25 },
+  { tierNumber: 4, maxTxnVolume: 50, hoursPerDay: 0.45 },
+];
 
 interface ResourceSeed {
   emp: string;

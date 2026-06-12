@@ -4,6 +4,7 @@ import * as React from "react";
 import { Dialog, DialogContent, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { apiSend } from "@/lib/api-client";
 import { toast } from "@/store/toastStore";
@@ -18,6 +19,7 @@ export interface ClientEditData {
   endDate: string | null;
   paymentMethod: string;
   billingType: string;
+  txnFeeEnabled?: boolean;
   driverBand: string | null;
   vanBand: string | null;
   routeBand: string | null;
@@ -34,7 +36,7 @@ export function ClientEditModal({
   client: ClientEditData | null;
   onSaved: () => void;
 }) {
-  const [form, setForm] = React.useState({ name: "", startDate: "", endDate: "", paymentMethod: "ACH", billingType: "LEGACY", driverBand: "", vanBand: "", routeBand: "" });
+  const [form, setForm] = React.useState({ name: "", startDate: "", endDate: "", paymentMethod: "ACH", billingType: "LEGACY", txnFeeEnabled: true, driverBand: "", vanBand: "", routeBand: "" });
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
@@ -44,6 +46,7 @@ export function ClientEditModal({
       endDate: client.endDate?.slice(0, 10) ?? "",
       paymentMethod: client.paymentMethod,
       billingType: client.billingType,
+      txnFeeEnabled: client.txnFeeEnabled ?? true,
       driverBand: client.driverBand ?? "",
       vanBand: client.vanBand ?? "",
       routeBand: client.routeBand ?? "",
@@ -61,6 +64,7 @@ export function ClientEditModal({
         endDate: form.endDate || null,
         paymentMethod: form.paymentMethod,
         billingType: form.billingType,
+        txnFeeEnabled: form.txnFeeEnabled,
         driverBand: form.driverBand || null,
         vanBand: form.vanBand || null,
         routeBand: form.routeBand || null,
@@ -86,6 +90,10 @@ export function ClientEditModal({
                 <div><Label>End Date</Label><Input type="date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} /></div>
                 <div><Label>Payment Method</Label><Select value={form.paymentMethod} onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value }))}><option value="ACH">ACH</option><option value="CARD">Card</option></Select></div>
                 <div><Label>Billing Type</Label><Select value={form.billingType} onChange={(e) => setForm((f) => ({ ...f, billingType: e.target.value }))}><option value="LEGACY">Legacy</option><option value="NEW">New</option></Select></div>
+                <div className="col-span-2">
+                  <label className="flex items-center gap-2 text-[12px] text-[#0F1629]"><Switch checked={form.txnFeeEnabled} onCheckedChange={(v) => setForm((f) => ({ ...f, txnFeeEnabled: v }))} /> Charge Transaction Fee</label>
+                  <p className="mt-1 text-[11px] text-[#94A3B8]">{form.txnFeeEnabled ? "Transaction fee will be added to billing." : "No transaction fee charged."}</p>
+                </div>
               </div>
             </TabsContent>
             <TabsContent value="fleet">

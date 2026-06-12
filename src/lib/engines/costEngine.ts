@@ -26,6 +26,8 @@ export function calculateFullyLoadedCost(params: {
   rateD: number; // INR -> USD display
   /** Sum of active recurring (MONTHLY) extra costs in INR. Optional. */
   extraMonthlyInr?: number;
+  /** When false, overhead is forced to 0 regardless of manual/pct. Default true. */
+  overheadEnabled?: boolean;
 }): {
   baseSalary: number;
   incentive: number;
@@ -51,10 +53,14 @@ export function calculateFullyLoadedCost(params: {
     rateB,
     rateD,
     extraMonthlyInr = 0,
+    overheadEnabled = true,
   } = params;
 
-  const overhead =
-    overheadManual != null ? overheadManual : baseSalary * (overheadPct / 100);
+  const overhead = !overheadEnabled
+    ? 0
+    : overheadManual != null
+      ? overheadManual
+      : baseSalary * (overheadPct / 100);
 
   const laptopAmortised =
     laptopCostInr != null && amortisationMonths > 0

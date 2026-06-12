@@ -63,6 +63,15 @@ export function ChangeStatusModal({
               <p className="mb-3 text-[13px] font-semibold">{isActive ? "Terminate Employee" : "Reactivate Employee"}</p>
               <Label>Effective Date</Label>
               <Input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+              {isActive && (
+                <div className="mt-3 rounded-[5px] bg-[#FAEEDA] px-3 py-2 text-[12px] text-[#633806]">
+                  ⚠ Terminating this resource will automatically:
+                  <ul className="ml-4 mt-1 list-disc">
+                    <li>Set billable status to Non-billable</li>
+                    <li>End all active client assignments on the effective date</li>
+                  </ul>
+                </div>
+              )}
               <div className="mt-3"><Label>{isActive ? "Reason (optional)" : "Notes (optional)"}</Label><Textarea value={note} onChange={(e) => setNote(e.target.value)} /></div>
               <div className="mt-4 flex justify-end">
                 <Button variant={isActive ? "danger" : "success"} onClick={doTermToggle} disabled={saving}>{isActive ? "Terminate" : "Reactivate"}</Button>

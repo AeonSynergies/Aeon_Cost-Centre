@@ -3,14 +3,8 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { Bell } from "lucide-react";
-import { initials, formatPeriod } from "@/lib/utils";
-import { useOpsStore } from "@/store/filterStore";
+import { initials } from "@/lib/utils";
 import { ChangePasswordModal } from "@/components/layout/ChangePasswordModal";
-
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
 
 function titleCase(seg: string) {
   return seg.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -18,11 +12,9 @@ function titleCase(seg: string) {
 
 export function Topbar({ user }: { user: { name: string } }) {
   const pathname = usePathname();
-  const { periodYear, periodMonth, setPeriod } = useOpsStore();
   const [pwOpen, setPwOpen] = React.useState(false);
 
   const crumbs = pathname.split("/").filter(Boolean).map(titleCase);
-  const years = [periodYear - 1, periodYear, periodYear + 1];
 
   return (
     <header className="sticky top-0 z-20 flex h-[52px] items-center justify-between border-b border-[#E8ECF4] bg-white px-5">
@@ -39,30 +31,6 @@ export function Topbar({ user }: { user: { name: string } }) {
             </span>
           ))
         )}
-      </div>
-
-      <div className="flex items-center gap-1 rounded-full border border-[#E8ECF4] bg-[#F8F9FC] px-1 py-0.5">
-        <select
-          value={periodMonth}
-          onChange={(e) => setPeriod(periodYear, Number(e.target.value))}
-          className="bg-transparent px-1 text-[12px] font-medium text-[#0F1629] outline-none"
-          aria-label="Month"
-        >
-          {MONTHS.map((m, i) => (
-            <option key={m} value={i + 1}>{m}</option>
-          ))}
-        </select>
-        <select
-          value={periodYear}
-          onChange={(e) => setPeriod(Number(e.target.value), periodMonth)}
-          className="bg-transparent px-1 text-[12px] font-medium text-[#0F1629] outline-none"
-          aria-label="Year"
-        >
-          {years.map((y) => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
-        <span className="sr-only">{formatPeriod(periodYear, periodMonth)}</span>
       </div>
 
       <div className="flex items-center gap-3">

@@ -35,14 +35,21 @@ export async function POST(req: Request) {
   });
   const existingSet = new Set(existing.map((e) => e.clientId));
 
+  // Period boundaries for churn / start checks.
+  const periodStart = new Date(Date.UTC(periodYear, periodMonth - 1, 1));
+  const periodEnd = new Date(Date.UTC(periodYear, periodMonth, 0, 23, 59, 59));
+
   let created = 0;
   let skipped = 0;
   for (const c of clients) {
     if (existingSet.has(c.id)) { skipped++; continue; }
     if (c.services.length === 0) { skipped++; continue; }
+    // Skip clients that hadn't started yet, or churned entirely before this period.
+    if (new Date(c.startDate) > periodEnd) { skipped++; continue; }
+    if (c.endDate && new Date(c.endDate) < periodStart) { skipped++; continue; }
 
     const wf = computeClientWaterfall(
-      { startDate: c.startDate, endDate: c.endDate, billingType: c.billingType, paymentMethod: c.paymentMethod, services: c.services },
+      { startDate: c.startDate, endDate: c.endDate, billingType: c.billingType, paymentMethod: c.paymentMethod, txnFeeEnabled: c.txnFeeEnabled, services: c.services },
       config,
       period
     );

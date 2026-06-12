@@ -7,6 +7,7 @@ import { Plus, Download, UserCog, Pencil } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PageShell, Stat } from "@/components/common/PageShell";
 import { FilterBar, FilterSelect } from "@/components/common/FilterBar";
+import { StatusPills } from "@/components/common/StatusPills";
 import { DataTable } from "@/components/common/DataTable";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -52,12 +53,19 @@ export default function ResourcesPage() {
   const [addOpen, setAddOpen] = React.useState(false);
   const [editRes, setEditRes] = React.useState<ResourceEditing | null>(null);
   const [editOpen, setEditOpen] = React.useState(false);
-  const [statusF, setStatusF] = React.useState("");
+  const [statusF, setStatusF] = React.useState("active");
   const [deptF, setDeptF] = React.useState("");
   const [billableOnly, setBillableOnly] = React.useState(false);
 
-  const rows = (data?.data ?? []).filter((r) => {
-    if (statusF && r.status !== statusF) return false;
+  const all = data?.data ?? [];
+  const statusCounts = {
+    all: all.length,
+    active: all.filter((r) => r.status === "ACTIVE").length,
+    termed: all.filter((r) => r.status === "TERMED").length,
+  };
+  const rows = all.filter((r) => {
+    if (statusF === "active" && r.status !== "ACTIVE") return false;
+    if (statusF === "termed" && r.status !== "TERMED") return false;
     if (deptF && r.departmentName !== deptF) return false;
     if (billableOnly && !r.isBillable) return false;
     return true;
@@ -124,11 +132,14 @@ export default function ResourcesPage() {
       }
       filterBar={
         <FilterBar>
-          <FilterSelect
+          <StatusPills
             value={statusF}
             onChange={setStatusF}
-            placeholder="All Status"
-            options={[{ value: "ACTIVE", label: "Active" }, { value: "TERMED", label: "Termed" }]}
+            options={[
+              { value: "all", label: "All", count: statusCounts.all },
+              { value: "active", label: "Active", count: statusCounts.active },
+              { value: "termed", label: "Termed", count: statusCounts.termed },
+            ]}
           />
           <FilterSelect
             value={deptF}

@@ -64,7 +64,8 @@ export function getInvoiceHours(params: {
 
   if (routesRan <= 0) return 0;
 
-  let hours = routesRan > routeThreshold ? aboveThresholdHrs : belowThresholdHrs;
+  // Threshold is inclusive: routes >= threshold use the above-threshold rate.
+  let hours = routesRan >= routeThreshold ? aboveThresholdHrs : belowThresholdHrs;
   if (fleetInvoice) hours += fleetAddOn;
   if (marshInvoice) hours += marshAddOn;
   return hours;

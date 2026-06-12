@@ -41,14 +41,43 @@ export async function GET(req: Request) {
   const expMonth = expenses.filter((e) => e.periodMonth === period.month);
   const totalExpensesInr = expMonth.reduce((s, e) => s + (e.amountInr ?? 0), 0);
 
-  // Cost KPIs.
+  // Cost KPIs + cost breakdown by cost centre (stacked bar).
   const active = core.resources.filter((r) => isResourceActive(r, period));
   let salaryInr = 0, fullyLoadedInr = 0, toolInr = 0, overheadInr = 0;
+  const ccAgg = new Map<string, { name: string; salary: number; tool: number; overhead: number }>();
   for (const r of active) {
     const c = computeResourceCost(r, core.config, period);
     salaryInr += c.baseSalary; fullyLoadedInr += c.totalCostInr; toolInr += c.ms365Cost + c.zoomCost; overheadInr += c.overhead;
+    const cc = ccAgg.get(r.costCentreId) ?? { name: r.costCentre.name, salary: 0, tool: 0, overhead: 0 };
+    cc.salary += c.baseSalary; cc.tool += c.ms365Cost + c.zoomCost; cc.overhead += c.overhead;
+    ccAgg.set(r.costCentreId, cc);
   }
   const netProfitInr = netRevenueInr - fullyLoadedInr - totalExpensesInr;
+  const costByCostCentre = Array.from(ccAgg.values()).map((c) => ({ name: c.name, salary: Math.round(c.salary), tool: Math.round(c.tool), overhead: Math.round(c.overhead) }));
+
+  // Monthly salary trend (Jan–Dec) — base salary of resources active each month.
+  const salaryTrend = MONTH_NAMES.map((m, i) => {
+    const p = { year: period.year, month: i + 1 };
+    const total = core.resources.filter((r) => isResourceActive(r, p)).reduce((s, r) => s + computeResourceCost(r, core.config, p).baseSalary, 0);
+    return { month: m, salary: Math.round(total), future: i + 1 > period.month };
+  });
+
+  // Capacity (per-resource utilisation) for the Capacity tab.
+  const utilRows = core.resources
+    .filter((r) => r.utilisationLogs.length > 0)
+    .map((r) => {
+      const total = r.utilisationLogs.reduce((s, l) => s + l.totalHoursPerDay, 0);
+      const pctU = (total / core.config.available_hrs_per_day) * 100;
+      return { id: r.id, name: r.name, pct: Math.round(pctU) };
+    })
+    .sort((a, b) => b.pct - a.pct);
+  const capacity = {
+    avgUtilPct: utilRows.length ? utilRows.reduce((s, r) => s + r.pct, 0) / utilRows.length : 0,
+    overCap: utilRows.filter((r) => r.pct > 100).length,
+    underUtil: utilRows.filter((r) => r.pct < 80).length,
+    healthy: utilRows.filter((r) => r.pct >= 80 && r.pct <= 100).length,
+    perResource: utilRows,
+  };
 
   // Operations KPIs.
   const activeClients = core.clients.filter((c) => clientActive(c.endDate, period));
@@ -57,7 +86,7 @@ export async function GET(req: Request) {
   // Charts: revenue vs expenses monthly.
   const revVsExp = MONTH_NAMES.map((m, i) => {
     const p = { year: period.year, month: i + 1 };
-    const rev = core.clients.reduce((s, c) => s + computeClientWaterfall({ startDate: c.startDate, endDate: c.endDate, billingType: c.billingType, paymentMethod: c.paymentMethod, services: c.services }, core.config, p).netRevenueInr, 0);
+    const rev = core.clients.reduce((s, c) => s + computeClientWaterfall({ startDate: c.startDate, endDate: c.endDate, billingType: c.billingType, paymentMethod: c.paymentMethod, txnFeeEnabled: c.txnFeeEnabled, services: c.services }, core.config, p).netRevenueInr, 0);
     const exp = expenses.filter((e) => e.periodMonth === i + 1).reduce((s, e) => s + (e.amountInr ?? 0), 0);
     return { month: m, revenue: Math.round(rev), expenses: Math.round(exp), future: i + 1 > period.month };
   });
@@ -85,8 +114,14 @@ export async function GET(req: Request) {
   const deptPnl = departments.map((d) => {
     const revenue = d.services.reduce((s, svc) => s + (serviceNetByService.get(svc.id) ?? 0), 0);
     const cost = wfByDeptCost.get(d.id) ?? 0;
-    return { id: d.id, name: d.name, resources: countByDept.get(d.id) ?? 0, costInr: cost, surplusInr: calculateDeptRevenueShare(revenue) - cost };
+    return { id: d.id, name: d.name, resources: countByDept.get(d.id) ?? 0, revenueInr: revenue, costInr: cost, surplusInr: calculateDeptRevenueShare(revenue) - cost };
   });
+
+  // Dept charts (moved from Department Analysis): Cost vs Revenue + Workforce Cost Split.
+  const costRevByDept = deptPnl.map((d) => ({ name: d.name, cost: Math.round(d.costInr), revenue: Math.round(d.revenueInr) }));
+  const workforceSplit = deptPnl
+    .filter((d) => d.costInr > 0)
+    .map((d, i) => ({ name: d.name, value: Math.round(d.costInr), color: ["#3266AD", "#1D9E75", "#7F77DD", "#BA7517", "#D4537E", "#D85A30"][i % 6] }));
 
   // Top clients by net revenue.
   const topClients = core.clients
@@ -113,7 +148,8 @@ export async function GET(req: Request) {
     financial: { totalServiceCostUsd, grossRevenueUsd, netRevenueUsd, netRevenueInr, totalExpensesInr, netProfitInr, abbieRoyaltyUsd, reserveFundUsd },
     operations: { activeClients: activeClients.length, mrrUsd, activeResources: active.length, billableResources: active.filter((r) => r.isBillable).length },
     cost: { salaryInr, fullyLoadedInr, toolInr, overheadInr },
-    charts: { revVsExp, allocation },
+    charts: { revVsExp, allocation, costRevByDept, workforceSplit, costByCostCentre, salaryTrend },
+    capacity,
     deptPnl, topClients, alerts,
     rates: core.rates,
   });

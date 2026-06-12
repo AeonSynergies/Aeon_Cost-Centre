@@ -19,6 +19,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const u = await requireUser();
   if ("error" in u) return u.error;
 
+  const period = periodFromQuery(req.url);
+
   const resource = await prisma.resource.findUnique({
     where: { id: params.id },
     include: {
@@ -34,18 +36,23 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         },
         orderBy: { assignedFrom: "desc" },
       },
+      utilisationLogs: { where: { periodYear: period.year, periodMonth: period.month } },
     },
   });
   if (!resource) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const config = await getSystemConfig();
-  const period = periodFromQuery(req.url);
   const cost = computeResourceCost(resource, config, period);
   const active = isResourceActive(resource, period);
+
+  // Per-client utilisation% for the period (used in the Assignments tab).
+  const utilByClient: Record<string, number> = {};
+  for (const l of resource.utilisationLogs) utilByClient[l.clientId] = (utilByClient[l.clientId] ?? 0) + l.utilisationPct;
 
   return NextResponse.json({
     data: { ...resource, active, status: active ? "ACTIVE" : "TERMED" },
     cost,
+    utilByClient,
   });
 }
 

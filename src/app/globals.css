@@ -32,3 +32,19 @@ body {
   font-family: "Inter", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Sticky table headers for hand-rolled detail tables.
+   When a table sits inside a scrollable container the header stays
+   pinned to the top of that container while rows scroll below it. */
+table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+}
+
+/* Detail-page tables: wrap long table content and scroll horizontally
+   rather than squashing columns. Card-wrapped tables opt in via overflow-auto. */
+table {
+  white-space: nowrap;
+}

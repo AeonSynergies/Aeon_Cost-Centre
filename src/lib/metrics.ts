@@ -42,11 +42,18 @@ type ResourceForCost = {
   joinedDate: Date;
   terminatedDate: Date | null;
   overheadManual: number | null;
+  overheadEnabled?: boolean | null;
   laptopCostInr: number | null;
   revisions: Array<{ effectiveFrom: Date; baseSalary: number; incentive: number; allowance: number }>;
   costCentre: { ms365RateInr: number; zoomRateUsd: number };
   extraCosts?: ExtraCost[];
 };
+
+/** Resolve overhead enablement: per-resource override wins, else global setting. */
+export function isOverheadEnabled(resourceOverride: boolean | null | undefined, globalEnabled: boolean): boolean {
+  if (resourceOverride === null || resourceOverride === undefined) return globalEnabled;
+  return resourceOverride;
+}
 
 /** Sum of MONTHLY extra costs active during the period. */
 export function activeMonthlyExtraInr(extraCosts: ExtraCost[] | undefined, period: Period): number {
@@ -103,6 +110,7 @@ export function computeResourceCost(
     rateB: rates.rateB,
     rateD: rates.rateD,
     extraMonthlyInr: activeMonthlyExtraInr(resource.extraCosts, period),
+    overheadEnabled: isOverheadEnabled(resource.overheadEnabled, config.overhead_enabled !== 0),
   });
 }
 
@@ -111,6 +119,7 @@ type ClientForWaterfall = {
   endDate: Date | null;
   billingType: "LEGACY" | "NEW";
   paymentMethod: "CARD" | "ACH";
+  txnFeeEnabled?: boolean;
   services: Array<{ monthlyFeeUsd: number; discountPct: number }>;
 };
 
@@ -152,6 +161,7 @@ export function computeClientWaterfall(
     discountPct,
     paymentMethod: client.paymentMethod,
     config,
+    txnFeeEnabled: client.txnFeeEnabled ?? true,
   });
 }
 

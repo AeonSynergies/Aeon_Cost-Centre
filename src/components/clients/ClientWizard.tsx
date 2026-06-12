@@ -6,6 +6,7 @@ import { ArrowLeft, Plus, Check } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useReference } from "@/hooks/useReference";
 import { PackageBlock, type Block, type PackageType } from "@/components/clients/PackageBlock";
 import { apiSend } from "@/lib/api-client";
@@ -22,7 +23,7 @@ export function ClientWizard() {
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const [basic, setBasic] = React.useState({ name: "", startDate: "", endDate: "", paymentMethod: "ACH", billingType: "LEGACY" });
+  const [basic, setBasic] = React.useState({ name: "", startDate: "", endDate: "", paymentMethod: "ACH", billingType: "LEGACY", txnFeeEnabled: true });
   const [fleet, setFleet] = React.useState({ driverBand: "", vanBand: "", routeBand: "" });
   const [blocks, setBlocks] = React.useState<Block[]>([]);
   const [totalDiscount, setTotalDiscount] = React.useState(0);
@@ -114,6 +115,10 @@ export function ClientWizard() {
               <Select value={basic.billingType} onChange={(e) => setBasic((b) => ({ ...b, billingType: e.target.value }))}>
                 <option value="LEGACY">Legacy</option><option value="NEW">New</option>
               </Select>
+            </div>
+            <div className="col-span-2">
+              <label className="flex items-center gap-2 text-[12px] text-[#0F1629]"><Switch checked={basic.txnFeeEnabled} onCheckedChange={(v) => setBasic((b) => ({ ...b, txnFeeEnabled: v }))} /> Charge Transaction Fee</label>
+              <p className="mt-1 text-[11px] text-[#94A3B8]">{basic.txnFeeEnabled ? "Transaction fee will be added to billing." : "No transaction fee charged."}</p>
             </div>
           </div>
         )}

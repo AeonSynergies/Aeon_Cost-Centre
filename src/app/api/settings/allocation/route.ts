@@ -8,6 +8,7 @@ const WRITE = ["ADMIN", "MANAGER"];
 
 const schema = z.object({
   year: z.number().int(),
+  effectiveFrom: z.string().optional(),
   deptReservePct: z.number().min(0).max(100),
   businessDevPct: z.number().min(0).max(100),
   productDevPct: z.number().min(0).max(100),
@@ -24,10 +25,11 @@ export async function POST(req: Request) {
 
   if (!validateAllocationPcts(d)) return badRequest("Allocation percentages must sum to 100");
 
+  const effectiveFrom = d.effectiveFrom ? new Date(d.effectiveFrom) : new Date(Date.UTC(d.year, 0, 1));
   const saved = await prisma.allocationConfig.upsert({
     where: { year: d.year },
-    update: { deptReservePct: d.deptReservePct, businessDevPct: d.businessDevPct, productDevPct: d.productDevPct, profitPct: d.profitPct },
-    create: d,
+    update: { deptReservePct: d.deptReservePct, businessDevPct: d.businessDevPct, productDevPct: d.productDevPct, profitPct: d.profitPct, effectiveFrom },
+    create: { year: d.year, deptReservePct: d.deptReservePct, businessDevPct: d.businessDevPct, productDevPct: d.productDevPct, profitPct: d.profitPct, effectiveFrom },
   });
   await writeAudit({ userId: u.user.id, entity: "AllocationConfig", entityId: String(d.year), action: "UPDATE", after: saved });
   return NextResponse.json({ data: saved });

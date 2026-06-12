@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { computeResourceCost, currentPeriod, type Period } from "@/lib/metrics";
 import { calculateUtilisation } from "@/lib/engines/utilisationEngine";
@@ -54,6 +55,31 @@ export async function GET(req: Request) {
     });
   }
 
+  // Per-service utilisation tiers effective at the period start, grouped by service.
+  const periodStart = new Date(Date.UTC(period.year, period.month - 1, 1));
+  const services = await prisma.service.findMany({
+    select: {
+      id: true, code: true, name: true, departmentId: true,
+      utilisationTiers: { where: { effectiveFrom: { lte: periodStart } }, orderBy: [{ tierNumber: "asc" }, { effectiveFrom: "desc" }] },
+    },
+  });
+  // Keep only the latest-effective row per (service, tierNumber).
+  const tiersByDept = new Map<string, { serviceCode: string; serviceName: string; tiers: { tierNumber: number; maxTxnVolume: number; hoursPerDay: number }[] }[]>();
+  for (const svc of services) {
+    const seen = new Set<number>();
+    const tiers: { tierNumber: number; maxTxnVolume: number; hoursPerDay: number }[] = [];
+    for (const t of svc.utilisationTiers) {
+      if (seen.has(t.tierNumber)) continue;
+      seen.add(t.tierNumber);
+      tiers.push({ tierNumber: t.tierNumber, maxTxnVolume: t.maxTxnVolume, hoursPerDay: t.hoursPerDay });
+    }
+    if (tiers.length === 0) continue;
+    tiers.sort((a, b) => a.tierNumber - b.tierNumber);
+    const list = tiersByDept.get(svc.departmentId) ?? [];
+    list.push({ serviceCode: svc.code, serviceName: svc.name, tiers });
+    tiersByDept.set(svc.departmentId, list);
+  }
+
   // Client-facing departments with their rows.
   const cfDepts = Array.from(new Map(core.resources.filter((r) => r.department.category === "CLIENT_FACING").map((r) => [r.departmentId, r.department])).values());
   const tabs = cfDepts.map((d) => {
@@ -69,6 +95,7 @@ export async function GET(req: Request) {
         marginInr: revenue - cost, avgUtilPct: deptRows.length ? deptRows.reduce((s, r) => s + r.utilisationPct, 0) / deptRows.length : 0,
       },
       rows: deptRows,
+      tierServices: tiersByDept.get(d.id) ?? [],
     };
   });
 

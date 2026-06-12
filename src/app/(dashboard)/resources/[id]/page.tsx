@@ -12,6 +12,7 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Avatar } from "@/components/common/Avatar";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { StatusPills } from "@/components/common/StatusPills";
 import { WorkingDayChips } from "@/components/common/DayChips";
 import { useReference } from "@/hooks/useReference";
 import { RevisionModal } from "@/components/resources/RevisionModal";
@@ -23,6 +24,7 @@ import { ExtraCostModal, type ExtraCostEditing } from "@/components/resources/Ex
 import { ResourceEditModal, type ResourceEditing } from "@/components/resources/ResourceEditModal";
 import { AssignmentEditModal, type AssignmentEditing } from "@/components/resources/AssignmentEditModal";
 import { RevisionEditModal, type RevisionEditing } from "@/components/resources/RevisionEditModal";
+import { UtilBar } from "@/components/common/UtilBar";
 import { apiGet, apiSend } from "@/lib/api-client";
 import { toast } from "@/store/toastStore";
 import { useOpsStore } from "@/store/filterStore";
@@ -43,7 +45,7 @@ interface Cost { baseSalary: number; incentive: number; allowance: number; overh
 export default function ResourceDetail({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { periodYear, periodMonth } = useOpsStore();
-  const { data, mutate } = useSWR<{ data: ResourceData; cost: Cost }>(`/api/resources/${params.id}?year=${periodYear}&month=${periodMonth}`, apiGet);
+  const { data, mutate } = useSWR<{ data: ResourceData; cost: Cost; utilByClient: Record<string, number> }>(`/api/resources/${params.id}?year=${periodYear}&month=${periodMonth}`, apiGet);
   const r = data?.data;
   const cost = data?.cost;
   const [statusOpen, setStatusOpen] = React.useState(false);
@@ -148,7 +150,7 @@ export default function ResourceDetail({ params }: { params: { id: string } }) {
 
         <TabsContent value="extra">{r && <ExtraCostsTab resource={r} onSaved={refresh} />}</TabsContent>
         <TabsContent value="assets">{r && <AssetsTab resourceId={params.id} assets={r.assets} onSaved={refresh} />}</TabsContent>
-        <TabsContent value="assignments">{r && <AssignmentsTab resourceId={params.id} assignments={r.assignments} onSaved={refresh} />}</TabsContent>
+        <TabsContent value="assignments">{r && <AssignmentsTab resourceId={params.id} assignments={r.assignments} utilByClient={data?.utilByClient ?? {}} onSaved={refresh} />}</TabsContent>
       </Tabs>
 
       <RevisionModal
@@ -266,14 +268,22 @@ function ExtraCostsTab({ resource, onSaved }: { resource: ResourceData; onSaved:
 function AssetsTab({ resourceId, assets, onSaved }: { resourceId: string; assets: Asset[]; onSaved: () => void }) {
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<AssetEditing | null>(null);
+  const [filter, setFilter] = React.useState("active");
+  const shown = assets.filter((a) => (filter === "active" ? a.status === "ISSUED" : true));
   return (
     <div>
-      <div className="mb-2 flex justify-end"><Button onClick={() => { setEditing(null); setOpen(true); }}><Plus size={14} /> Add Asset</Button></div>
+      <div className="mb-2 flex items-center justify-between">
+        <StatusPills value={filter} onChange={setFilter} options={[
+          { value: "active", label: "Active", count: assets.filter((a) => a.status === "ISSUED").length },
+          { value: "all", label: "All", count: assets.length },
+        ]} />
+        <Button onClick={() => { setEditing(null); setOpen(true); }}><Plus size={14} /> Add Asset</Button>
+      </div>
       <Card className="p-4">
         <table className="w-full text-[12px]">
           <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Type</th><th>Description</th><th>Serial No</th><th>Issue Date</th><th>Return Date</th><th>Status</th></tr></thead>
           <tbody>
-            {assets.map((a) => (
+            {shown.map((a) => (
               <tr key={a.id} className="cursor-pointer border-b border-[#E8ECF4] hover:bg-[#F8F9FC]" onClick={() => { setEditing(a); setOpen(true); }}>
                 <td className="py-2">{a.assetType}</td><td>{a.description ?? "—"}</td><td className="font-mono text-[11px]">{a.serialNumber ?? "—"}</td>
                 <td>{formatDate(a.issueDate)}</td><td>{formatDate(a.returnDate)}</td><td><StatusBadge status={a.status} /></td>
@@ -287,25 +297,35 @@ function AssetsTab({ resourceId, assets, onSaved }: { resourceId: string; assets
   );
 }
 
-function AssignmentsTab({ resourceId, assignments, onSaved }: { resourceId: string; assignments: Assignment[]; onSaved: () => void }) {
+function AssignmentsTab({ resourceId, assignments, utilByClient, onSaved }: { resourceId: string; assignments: Assignment[]; utilByClient: Record<string, number>; onSaved: () => void }) {
   const [open, setOpen] = React.useState(false);
   const [transferOpen, setTransferOpen] = React.useState(false);
   const [target, setTarget] = React.useState<TransferTarget | null>(null);
   const [editAssign, setEditAssign] = React.useState<AssignmentEditing | null>(null);
   const [editAssignOpen, setEditAssignOpen] = React.useState(false);
+  const [filter, setFilter] = React.useState("active");
   const isActive = (a: Assignment) => !a.assignedTo || new Date(a.assignedTo) >= new Date();
+  const shown = assignments.filter((a) => (filter === "active" ? isActive(a) : filter === "ended" ? !isActive(a) : true));
 
   return (
     <div>
-      <div className="mb-2 flex justify-end"><Button onClick={() => setOpen(true)}><Plus size={14} /> Assign to Client</Button></div>
+      <div className="mb-2 flex items-center justify-between">
+        <StatusPills value={filter} onChange={setFilter} options={[
+          { value: "active", label: "Active", count: assignments.filter(isActive).length },
+          { value: "ended", label: "Ended", count: assignments.filter((a) => !isActive(a)).length },
+          { value: "all", label: "All", count: assignments.length },
+        ]} />
+        <Button onClick={() => setOpen(true)}><Plus size={14} /> Assign to Client</Button>
+      </div>
       <Card className="p-4">
         <table className="w-full text-[12px]">
-          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Client</th><th>Service</th><th>From</th><th>To</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Client</th><th>Service</th><th>From</th><th>To</th><th>Utilisation</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            {assignments.map((a) => (
+            {shown.map((a) => (
               <tr key={a.id} className="border-b border-[#E8ECF4]">
                 <td className="py-2 font-medium">{a.client.name}</td><td className="font-mono text-[11px]">{a.service.code}</td>
                 <td>{formatDate(a.assignedFrom)}</td><td>{formatDate(a.assignedTo)}</td>
+                <td>{utilByClient[a.client.id] !== undefined ? <UtilBar pct={utilByClient[a.client.id]} /> : <span className="text-[#94A3B8]">—</span>}</td>
                 <td><StatusBadge status={isActive(a) ? "ACTIVE" : "TERMED"} /></td>
                 <td className="flex gap-1 py-1">
                   <Button size="sm" variant="ghost" onClick={() => { setEditAssign({ id: a.id, resourceId, clientName: a.client.name, serviceLabel: `${a.service.code} — ${a.service.name}`, assignedFrom: a.assignedFrom, assignedTo: a.assignedTo }); setEditAssignOpen(true); }}><Pencil size={12} /></Button>

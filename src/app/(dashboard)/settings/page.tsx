@@ -13,11 +13,10 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { ActivityModal, type ActivityEditing } from "@/components/services/ActivityModal";
 import { apiGet, apiSend } from "@/lib/api-client";
 import { toast } from "@/store/toastStore";
-import { formatInr, formatUsd } from "@/lib/utils";
 
 type Settings = {
   config: Record<string, number>;
-  allocations: { year: number; deptReservePct: number; businessDevPct: number; productDevPct: number; profitPct: number }[];
+  allocations: { year: number; effectiveFrom: string; deptReservePct: number; businessDevPct: number; productDevPct: number; profitPct: number }[];
   costCentres: { id: string; name: string; ms365RateInr: number; zoomRateUsd: number }[];
   googleWorkspaceInr: number;
 };
@@ -27,6 +26,7 @@ const GENERAL = [
   { key: "working_days_per_month", label: "Default Working Days / Month" },
   { key: "available_hrs_per_day", label: "Available Hours / Day" },
   { key: "overhead_pct", label: "Default Overhead %" },
+  { key: "overhead_enabled", label: "Include Overhead (1 = on, 0 = off)" },
   { key: "laptop_amortisation_months", label: "Laptop Amortisation (months)" },
 ];
 const REVENUE = [
@@ -34,7 +34,7 @@ const REVENUE = [
   { key: "reserve_fund_pct", label: "Reserve Fund %" }, { key: "card_txn_fee_pct", label: "Card Transaction Fee %" },
   { key: "ach_txn_fee_pct", label: "ACH Transaction Fee %" }, { key: "stripe_card_pct", label: "Stripe Card %" },
   { key: "stripe_card_fixed", label: "Stripe Card Fixed Fee $" }, { key: "stripe_ach_pct", label: "Stripe ACH %" },
-  { key: "stripe_ach_min", label: "Stripe ACH Minimum $" },
+  { key: "stripe_ach_cap", label: "Stripe ACH Cap $" },
 ];
 
 export default function SettingsPage() {
@@ -44,7 +44,7 @@ export default function SettingsPage() {
     <PageShell title="Settings">
       <Tabs defaultValue="general" className="flex min-h-0 flex-1 flex-col">
         <TabsList>
-          {["General", "Currency", "Revenue", "Allocation", "Tool Costs", "Utilisation", "Categories"].map((t) => (
+          {["General", "Currency", "Revenue", "Allocation", "Utilisation", "Categories"].map((t) => (
             <TabsTrigger key={t} value={t.toLowerCase().replace(/ /g, "-")}>{t}</TabsTrigger>
           ))}
         </TabsList>
@@ -58,12 +58,8 @@ export default function SettingsPage() {
           </>}
         </TabsContent>
         <TabsContent value="allocation">
-          {data?.allocations.map((a) => <AllocationSection key={a.year} alloc={a} onSaved={mutate} />)}
-          {[2026, 2027].filter((y) => !data?.allocations.some((a) => a.year === y)).map((y) => (
-            <AllocationSection key={y} alloc={{ year: y, deptReservePct: 50, businessDevPct: 30, productDevPct: 20, profitPct: 0 }} onSaved={mutate} />
-          ))}
+          <AllocationTab allocations={data?.allocations ?? []} onSaved={mutate} />
         </TabsContent>
-        <TabsContent value="tool-costs">{data && <ToolCostsSection costCentres={data.costCentres} googleWorkspaceInr={data.googleWorkspaceInr} onSaved={mutate} />}</TabsContent>
         <TabsContent value="utilisation"><UtilisationSection /></TabsContent>
         <TabsContent value="categories"><CategoriesSection /></TabsContent>
       </Tabs>
@@ -130,20 +126,35 @@ function CurrencySection({ config, onSaved }: { config: Record<string, number>; 
   );
 }
 
+function AllocationTab({ allocations, onSaved }: { allocations: Settings["allocations"]; onSaved: () => void }) {
+  const [addOpen, setAddOpen] = React.useState(false);
+  const shown = allocations.length ? allocations : [];
+  return (
+    <>
+      <div className="mb-3 flex justify-end"><Button size="sm" onClick={() => setAddOpen(true)}><Plus size={13} /> Add Allocation</Button></div>
+      {shown.map((a) => <AllocationSection key={a.year} alloc={a} onSaved={onSaved} />)}
+      {shown.length === 0 && <Card className="max-w-2xl p-4 text-[12px] text-[#94A3B8]">No allocation configured yet. Use “Add Allocation”.</Card>}
+      <AllocationModal open={addOpen} onOpenChange={setAddOpen} existingYears={allocations.map((a) => a.year)} onSaved={onSaved} />
+    </>
+  );
+}
+
 function AllocationSection({ alloc, onSaved }: { alloc: Settings["allocations"][number]; onSaved: () => void }) {
   const [v, setV] = React.useState(alloc);
+  const [effectiveFrom, setEffectiveFrom] = React.useState((alloc.effectiveFrom ?? "").slice(0, 10) || `${alloc.year}-01-01`);
   const [saving, setSaving] = React.useState(false);
   const sum = v.deptReservePct + v.businessDevPct + v.productDevPct + v.profitPct;
   const valid = Math.abs(sum - 100) < 0.001;
-  const save = async () => { setSaving(true); try { await apiSend("/api/settings/allocation", "POST", v); toast(`Allocation ${v.year} saved`); onSaved(); } catch (e) { toast(e instanceof Error ? e.message : "Failed", "error"); } finally { setSaving(false); } };
+  const save = async () => { setSaving(true); try { await apiSend("/api/settings/allocation", "POST", { ...v, effectiveFrom }); toast(`Allocation ${v.year} saved`); onSaved(); } catch (e) { toast(e instanceof Error ? e.message : "Failed", "error"); } finally { setSaving(false); } };
   return (
     <Card className="mb-3 max-w-2xl p-4">
-      <SectionTitle>{v.year}</SectionTitle>
+      <div className="flex items-center justify-between"><SectionTitle>{v.year}</SectionTitle><span className="text-[11px] text-[#94A3B8]">Effective from {effectiveFrom}</span></div>
       <div className="mt-2 grid grid-cols-4 gap-3">
         <div><Label>Dept Reserve %</Label><Input type="number" value={v.deptReservePct} onChange={(e) => setV((s) => ({ ...s, deptReservePct: Number(e.target.value) }))} /></div>
         <div><Label>Business Dev %</Label><Input type="number" value={v.businessDevPct} onChange={(e) => setV((s) => ({ ...s, businessDevPct: Number(e.target.value) }))} /></div>
         <div><Label>Product Dev %</Label><Input type="number" value={v.productDevPct} onChange={(e) => setV((s) => ({ ...s, productDevPct: Number(e.target.value) }))} /></div>
         <div><Label>Profit %</Label><Input type="number" value={v.profitPct} onChange={(e) => setV((s) => ({ ...s, profitPct: Number(e.target.value) }))} /></div>
+        <div><Label>Effective From</Label><Input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} /></div>
       </div>
       <div className="mt-2 flex items-center justify-between">
         <span className={`text-[12px] font-semibold ${valid ? "text-[#1D9E75]" : "text-[#D85A30]"}`}>{valid ? `Sum: 100% ✓` : `Percentages must sum to 100%. Current total: ${sum}%`}</span>
@@ -153,72 +164,52 @@ function AllocationSection({ alloc, onSaved }: { alloc: Settings["allocations"][
   );
 }
 
-function ToolCostsSection({ costCentres, googleWorkspaceInr, onSaved }: { costCentres: Settings["costCentres"]; googleWorkspaceInr: number; onSaved: () => void }) {
-  const [editing, setEditing] = React.useState<Settings["costCentres"][number] | null>(null);
-  const [form, setForm] = React.useState({ ms365RateInr: 0, zoomRateUsd: 0 });
-  const [gw, setGw] = React.useState(googleWorkspaceInr);
+function AllocationModal({ open, onOpenChange, existingYears, onSaved }: { open: boolean; onOpenChange: (o: boolean) => void; existingYears: number[]; onSaved: () => void }) {
+  const [form, setForm] = React.useState({ year: new Date().getFullYear(), effectiveFrom: new Date().toISOString().slice(0, 10), deptReservePct: 50, businessDevPct: 30, productDevPct: 20, profitPct: 0 });
   const [saving, setSaving] = React.useState(false);
-
-  const open = (cc: Settings["costCentres"][number]) => { setEditing(cc); setForm({ ms365RateInr: cc.ms365RateInr, zoomRateUsd: cc.zoomRateUsd }); };
-  const save = async () => { if (!editing) return; setSaving(true); try { await apiSend(`/api/settings/tool-costs/${editing.id}`, "PATCH", form); toast("Tool costs saved"); setEditing(null); onSaved(); } finally { setSaving(false); } };
-  const saveGw = async () => { setSaving(true); try { await apiSend("/api/settings/client-tools", "PATCH", { googleWorkspaceInr: Number(gw) }); toast("Client tools saved"); onSaved(); } finally { setSaving(false); } };
-
+  const sum = form.deptReservePct + form.businessDevPct + form.productDevPct + form.profitPct;
+  const valid = Math.abs(sum - 100) < 0.001;
+  const save = async () => {
+    setSaving(true);
+    try {
+      await apiSend("/api/settings/allocation", "POST", { year: Number(form.year), effectiveFrom: form.effectiveFrom, deptReservePct: form.deptReservePct, businessDevPct: form.businessDevPct, productDevPct: form.productDevPct, profitPct: form.profitPct });
+      toast(`Allocation ${form.year} saved`); onSaved(); onOpenChange(false);
+    } catch (e) { toast(e instanceof Error ? e.message : "Failed", "error"); } finally { setSaving(false); }
+  };
   return (
-    <>
-      <Card className="p-4">
-        <SectionTitle>Cost Centre Tool Rates</SectionTitle>
-        <table className="mt-2 w-full text-[12px]">
-          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Cost Centre</th><th>MS365 (₹/seat)</th><th>Zoom ($/seat)</th><th></th></tr></thead>
-          <tbody>
-            {costCentres.map((cc) => (
-              <tr key={cc.id} className="border-b border-[#E8ECF4]">
-                <td className="py-2 font-medium">{cc.name}</td><td>{formatInr(cc.ms365RateInr)}</td><td>{formatUsd(cc.zoomRateUsd)}</td>
-                <td className="py-1 text-right"><Button size="sm" variant="ghost" onClick={() => open(cc)}><Pencil size={12} /></Button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-
-      <Card className="mt-3 max-w-md p-4">
-        <SectionTitle>Client Tools</SectionTitle>
-        <div className="mt-2 flex items-end gap-3">
-          <div className="flex-1"><Label>Google Workspace (₹/seat)</Label><Input type="number" value={gw} onChange={(e) => setGw(Number(e.target.value))} /></div>
-          <Button onClick={saveGw} disabled={saving}>Save</Button>
-        </div>
-      </Card>
-
-      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent title={`Edit Tool Costs — ${editing?.name ?? ""}`} width={420}>
-          <DialogBody>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>MS365 Rate (₹/seat)</Label><Input type="number" value={form.ms365RateInr} onChange={(e) => setForm((f) => ({ ...f, ms365RateInr: Number(e.target.value) }))} /></div>
-              <div><Label>Zoom Rate ($/seat)</Label><Input type="number" value={form.zoomRateUsd} onChange={(e) => setForm((f) => ({ ...f, zoomRateUsd: Number(e.target.value) }))} /></div>
-            </div>
-          </DialogBody>
-          <DialogFooter><Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button><Button onClick={save} disabled={saving}>Save</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent title="Add Allocation" width={460}>
+        <DialogBody>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Year</Label><Input type="number" value={form.year} onChange={(e) => setForm((f) => ({ ...f, year: Number(e.target.value) }))} />{existingYears.includes(Number(form.year)) && <p className="mt-1 text-[10px] text-[#BA7517]">Overwrites the existing {form.year} allocation.</p>}</div>
+            <div><Label>Effective From</Label><Input type="date" value={form.effectiveFrom} onChange={(e) => setForm((f) => ({ ...f, effectiveFrom: e.target.value }))} /></div>
+            <div><Label>Dept Reserve %</Label><Input type="number" value={form.deptReservePct} onChange={(e) => setForm((f) => ({ ...f, deptReservePct: Number(e.target.value) }))} /></div>
+            <div><Label>Business Dev %</Label><Input type="number" value={form.businessDevPct} onChange={(e) => setForm((f) => ({ ...f, businessDevPct: Number(e.target.value) }))} /></div>
+            <div><Label>Product Dev %</Label><Input type="number" value={form.productDevPct} onChange={(e) => setForm((f) => ({ ...f, productDevPct: Number(e.target.value) }))} /></div>
+            <div><Label>Profit %</Label><Input type="number" value={form.profitPct} onChange={(e) => setForm((f) => ({ ...f, profitPct: Number(e.target.value) }))} /></div>
+          </div>
+          <div className={`mt-2 text-[12px] font-semibold ${valid ? "text-[#1D9E75]" : "text-[#D85A30]"}`}>{valid ? "Sum: 100% ✓" : `Percentages must sum to 100%. Current total: ${sum}%`}</div>
+        </DialogBody>
+        <DialogFooter><Button variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button><Button onClick={save} disabled={saving || !valid}>{saving ? "Saving…" : "Save"}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
+type ServiceTier = { serviceId: string; serviceCode: string; serviceName: string; tiers: { tierNumber: number; maxTxnVolume: number; hoursPerDay: number; effectiveFrom: string }[] };
+
 function UtilisationSection() {
-  const { data: tierData, mutate: mutateTiers } = useSWR<{ data: { maxTxn: number; hoursPerDay: number }[] }>("/api/settings/utilisation-tiers", apiGet);
   const { data: ruleData, mutate: mutateRules } = useSWR<{ data: Record<string, number> }>("/api/settings/invoice-rules", apiGet);
   const { data: actData, mutate: mutateActs } = useSWR<{ data: { id: string; name: string; defaultExpectedHoursPerDay: number; serviceId: string; serviceCode: string; serviceName: string }[] }>("/api/settings/activities", apiGet);
 
-  const [tiers, setTiers] = React.useState<{ maxTxn: number; hoursPerDay: number }[]>([]);
   const [rules, setRules] = React.useState<Record<string, number>>({});
   const [actModal, setActModal] = React.useState(false);
   const [editAct, setEditAct] = React.useState<ActivityEditing | null>(null);
   const [svcFilter, setSvcFilter] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
-  React.useEffect(() => { if (tierData) setTiers(tierData.data); }, [tierData]);
   React.useEffect(() => { if (ruleData) setRules(ruleData.data); }, [ruleData]);
 
-  const saveTiers = async () => { setBusy(true); try { await apiSend("/api/settings/utilisation-tiers", "PUT", { tiers }); toast("Tiers saved"); mutateTiers(); } finally { setBusy(false); } };
   const saveRules = async () => { setBusy(true); try { await apiSend("/api/settings/invoice-rules", "PATCH", rules); toast("Invoice rules saved"); mutateRules(); } finally { setBusy(false); } };
   const delAct = async (a: { id: string; serviceId: string }) => { await apiSend(`/api/services/${a.serviceId}/activities/${a.id}`, "DELETE"); toast("Activity removed"); mutateActs(); };
 
@@ -227,26 +218,7 @@ function UtilisationSection() {
 
   return (
     <div className="space-y-3">
-      <Card className="p-4">
-        <SectionTitle>Bookkeeping Tiers</SectionTitle>
-        <table className="mt-2 w-full text-[12px]">
-          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Tier</th><th>Max Daily Txn</th><th>Hours/Day</th><th></th></tr></thead>
-          <tbody>
-            {tiers.map((t, i) => (
-              <tr key={i} className="border-b border-[#E8ECF4]">
-                <td className="py-1.5">Tier {i + 1}</td>
-                <td><Input className="h-[26px] w-24" type="number" value={t.maxTxn} onChange={(e) => setTiers((arr) => arr.map((x, j) => j === i ? { ...x, maxTxn: Number(e.target.value) } : x))} /></td>
-                <td><Input className="h-[26px] w-24" type="number" step="0.01" value={t.hoursPerDay} onChange={(e) => setTiers((arr) => arr.map((x, j) => j === i ? { ...x, hoursPerDay: Number(e.target.value) } : x))} /></td>
-                <td className="text-right">{tiers.length > 1 && <Button size="sm" variant="ghost" onClick={() => setTiers((arr) => arr.filter((_, j) => j !== i))}><Trash2 size={12} /></Button>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="mt-2 flex gap-2">
-          <Button size="sm" variant="secondary" onClick={() => setTiers((a) => [...a, { maxTxn: 0, hoursPerDay: 0 }])}><Plus size={13} /> Add Tier</Button>
-          <Button size="sm" onClick={saveTiers} disabled={busy}>Save Tiers</Button>
-        </div>
-      </Card>
+      <ServiceTiersSection />
 
       <Card className="max-w-2xl p-4">
         <SectionTitle>Invoice Validation Rules</SectionTitle>
@@ -281,6 +253,50 @@ function UtilisationSection() {
       </Card>
 
       <ActivityModal open={actModal} onOpenChange={setActModal} editing={editAct} allowServicePick onSaved={() => mutateActs()} />
+    </div>
+  );
+}
+
+function ServiceTiersSection() {
+  const { data, mutate } = useSWR<{ data: ServiceTier[] }>("/api/settings/service-tiers", apiGet);
+  return (
+    <Card className="p-4">
+      <SectionTitle>Utilisation Tiers by Service</SectionTitle>
+      <p className="mt-1 text-[11px] text-[#94A3B8]">Tiers map a service&apos;s daily transaction volume to service hours/day. Each save is effective-dated.</p>
+      <div className="mt-3 space-y-4">
+        {(data?.data ?? []).length === 0 && <div className="text-[12px] text-[#94A3B8]">No services configured.</div>}
+        {data?.data.map((svc) => <ServiceTierEditor key={svc.serviceId} svc={svc} onSaved={mutate} />)}
+      </div>
+    </Card>
+  );
+}
+
+function ServiceTierEditor({ svc, onSaved }: { svc: ServiceTier; onSaved: () => void }) {
+  const [tiers, setTiers] = React.useState(svc.tiers.length ? svc.tiers.map((t) => ({ maxTxnVolume: t.maxTxnVolume, hoursPerDay: t.hoursPerDay })) : [{ maxTxnVolume: 0, hoursPerDay: 0 }]);
+  const [effectiveFrom, setEffectiveFrom] = React.useState(new Date().toISOString().slice(0, 10));
+  const [busy, setBusy] = React.useState(false);
+  const save = async () => { setBusy(true); try { await apiSend("/api/settings/service-tiers", "PUT", { serviceId: svc.serviceId, effectiveFrom, tiers }); toast(`${svc.serviceCode} tiers saved`); onSaved(); } catch (e) { toast(e instanceof Error ? e.message : "Failed", "error"); } finally { setBusy(false); } };
+  return (
+    <div className="rounded-[8px] border border-[#E8ECF4] p-3">
+      <div className="mb-2 text-[12px] font-semibold text-[#0F1629]">{svc.serviceName} <span className="font-mono text-[10px] text-[#94A3B8]">{svc.serviceCode}</span></div>
+      <table className="w-full text-[12px]">
+        <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-1">Tier</th><th>Max Daily Txn</th><th>Hours/Day</th><th></th></tr></thead>
+        <tbody>
+          {tiers.map((t, i) => (
+            <tr key={i} className="border-b border-[#E8ECF4]">
+              <td className="py-1.5">Tier {i + 1}</td>
+              <td><Input className="h-[26px] w-24" type="number" value={t.maxTxnVolume} onChange={(e) => setTiers((arr) => arr.map((x, j) => j === i ? { ...x, maxTxnVolume: Number(e.target.value) } : x))} /></td>
+              <td><Input className="h-[26px] w-24" type="number" step="0.01" value={t.hoursPerDay} onChange={(e) => setTiers((arr) => arr.map((x, j) => j === i ? { ...x, hoursPerDay: Number(e.target.value) } : x))} /></td>
+              <td className="text-right">{tiers.length > 1 && <Button size="sm" variant="ghost" onClick={() => setTiers((arr) => arr.filter((_, j) => j !== i))}><Trash2 size={12} /></Button>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        <div><Label>Effective From</Label><Input className="h-[28px] w-40" type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} /></div>
+        <Button size="sm" variant="secondary" onClick={() => setTiers((a) => [...a, { maxTxnVolume: 0, hoursPerDay: 0 }])}><Plus size={13} /> Add Tier</Button>
+        <Button size="sm" onClick={save} disabled={busy}>Save</Button>
+      </div>
     </div>
   );
 }

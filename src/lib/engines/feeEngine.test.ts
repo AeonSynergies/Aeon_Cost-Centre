@@ -21,11 +21,25 @@ describe("feeEngine - stripe fee", () => {
   it("Card stripe is 2.5% + $0.30", () => {
     expect(calculateStripeFee(280.8, "CARD", config)).toBeCloseTo(7.32, 6);
   });
-  it("ACH stripe is 0.8% with a $5 minimum (minimum applies)", () => {
-    expect(calculateStripeFee(203, "ACH", config)).toBeCloseTo(5, 6);
+  it("ACH stripe uses 0.8% when below the $5 cap", () => {
+    // $500 × 0.8% = $4.00 -> below cap -> $4.00
+    expect(calculateStripeFee(500, "ACH", config)).toBeCloseTo(4, 6);
   });
-  it("ACH stripe uses the percentage when above the minimum", () => {
-    expect(calculateStripeFee(1000, "ACH", config)).toBeCloseTo(8, 6);
+  it("ACH stripe caps at $5 for larger amounts", () => {
+    // $1000 × 0.8% = $8.00 -> capped -> $5.00
+    expect(calculateStripeFee(1000, "ACH", config)).toBeCloseTo(5, 6);
+    // $2030 × 0.8% = $16.24 -> capped -> $5.00
+    expect(calculateStripeFee(2030, "ACH", config)).toBeCloseTo(5, 6);
+  });
+});
+
+describe("feeEngine - txn fee toggle", () => {
+  it("returns 0 when txn fee is disabled", () => {
+    expect(calculateTxnFee(200, "CARD", config, false)).toBe(0);
+    expect(calculateTxnFee(200, "ACH", config, false)).toBe(0);
+  });
+  it("charges normally when enabled", () => {
+    expect(calculateTxnFee(200, "CARD", config, true)).toBeCloseTo(8, 6);
   });
 });
 
@@ -46,20 +60,36 @@ describe("feeEngine - full waterfall (ACH, 20% discount)", () => {
     expect(w.txnFeeUsd).toBeCloseTo(3, 6);
     expect(w.netServiceCostUsd).toBeCloseTo(203, 6);
   });
-  it("computes stripe and gross revenue", () => {
-    expect(w.stripeFeeUsd).toBeCloseTo(5, 6);
-    expect(w.grossRevenueUsd).toBeCloseTo(198, 6);
+  it("computes stripe (0.8% below cap) and gross revenue", () => {
+    // net service cost 203 -> 203 × 0.8% = 1.624 (below $5 cap)
+    expect(w.stripeFeeUsd).toBeCloseTo(1.624, 6);
+    expect(w.grossRevenueUsd).toBeCloseTo(201.376, 6);
   });
   it("computes abbie, reserve and net revenue (USD)", () => {
-    expect(w.abbieRoyaltyUsd).toBeCloseTo(19.8, 6);
-    expect(w.reserveFundUsd).toBeCloseTo(29.7, 6);
-    expect(w.netRevenueUsd).toBeCloseTo(148.5, 6);
+    expect(w.abbieRoyaltyUsd).toBeCloseTo(20.1376, 6);
+    expect(w.reserveFundUsd).toBeCloseTo(30.2064, 6);
+    expect(w.netRevenueUsd).toBeCloseTo(151.032, 6);
   });
   it("computes skydo, net USD and net revenue INR", () => {
-    expect(w.skydoFeeUsd).toBeCloseTo(2.97, 6);
-    expect(w.netUsdToConvert).toBeCloseTo(145.53, 6);
+    expect(w.skydoFeeUsd).toBeCloseTo(3.02064, 6);
+    expect(w.netUsdToConvert).toBeCloseTo(148.01136, 6);
     expect(w.usdInrRate).toBe(91);
-    expect(w.netRevenueInr).toBeCloseTo(13243.23, 4);
+    expect(w.netRevenueInr).toBeCloseTo(13469.03376, 4);
+  });
+});
+
+describe("feeEngine - txn fee disabled waterfall (ACH)", () => {
+  const w = calculateRevenueWaterfall({
+    totalServiceCostUsd: 250,
+    proratedFeeUsd: 250,
+    discountPct: 20,
+    paymentMethod: "ACH",
+    config,
+    txnFeeEnabled: false,
+  });
+  it("zeroes the txn fee and net service cost equals discounted fee", () => {
+    expect(w.txnFeeUsd).toBe(0);
+    expect(w.netServiceCostUsd).toBeCloseTo(200, 6);
   });
 });
 

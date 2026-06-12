@@ -65,6 +65,7 @@ export async function GET(req: Request) {
       endDate: c.endDate,
       billingType: c.billingType,
       paymentMethod: c.paymentMethod,
+      txnFeeEnabled: c.txnFeeEnabled,
       services: svcInput,
     };
     const monthlyFeeUsd = svcInput.reduce((s, x) => s + x.monthlyFeeUsd, 0);
@@ -86,6 +87,7 @@ export async function GET(req: Request) {
       name: c.name,
       billingType: c.billingType,
       paymentMethod: c.paymentMethod,
+      txnFeeEnabled: c.txnFeeEnabled,
       packages,
       services: c.services.map((s) => s.service.code),
       startDate: c.startDate,
@@ -130,6 +132,7 @@ const createSchema = z.object({
   endDate: z.string().optional().nullable(),
   paymentMethod: z.enum(["CARD", "ACH"]),
   billingType: z.enum(["LEGACY", "NEW"]),
+  txnFeeEnabled: z.boolean().optional(),
   driverBand: z.string().optional().nullable(),
   vanBand: z.string().optional().nullable(),
   routeBand: z.string().optional().nullable(),
@@ -151,6 +154,7 @@ export async function POST(req: Request) {
       endDate: d.endDate ? new Date(d.endDate) : null,
       paymentMethod: d.paymentMethod,
       billingType: d.billingType,
+      txnFeeEnabled: d.txnFeeEnabled ?? true,
       driverBand: d.driverBand || null,
       vanBand: d.vanBand || null,
       routeBand: d.routeBand || null,

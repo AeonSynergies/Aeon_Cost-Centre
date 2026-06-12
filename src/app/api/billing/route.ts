@@ -24,6 +24,7 @@ export async function GET(req: Request) {
     billingType: r.client.billingType,
     periodYear: r.periodYear,
     periodMonth: r.periodMonth,
+    totalServiceCostUsd: r.totalServiceCostUsd,
     proratedFeeUsd: r.proratedFeeUsd,
     discountUsd: r.discountUsd,
     stripeFeeUsd: r.stripeFeeUsd,

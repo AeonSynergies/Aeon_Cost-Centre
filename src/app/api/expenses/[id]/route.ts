@@ -13,6 +13,11 @@ const patchSchema = z.object({
   description: z.string().min(1).optional(),
   departmentId: z.string().nullable().optional(),
   costCentreId: z.string().nullable().optional(),
+  clientId: z.string().nullable().optional(),
+  isBillable: z.boolean().optional(),
+  toolName: z.string().nullable().optional(),
+  rate: z.number().min(0).nullable().optional(),
+  seats: z.number().min(0).nullable().optional(),
   amountUsd: z.number().min(0).nullable().optional(),
   amountInr: z.number().min(0).nullable().optional(),
   conversionRate: z.number().min(0).nullable().optional(),
@@ -39,6 +44,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     ...(d.description !== undefined ? { description: d.description } : {}),
     ...(d.departmentId !== undefined ? { departmentId: d.departmentId || null } : {}),
     ...(d.costCentreId !== undefined ? { costCentreId: d.costCentreId || null } : {}),
+    ...(d.clientId !== undefined ? { clientId: d.clientId || null } : {}),
+    ...(d.isBillable !== undefined ? { isBillable: d.isBillable } : {}),
+    ...(d.toolName !== undefined ? { toolName: d.toolName || null } : {}),
+    ...(d.rate !== undefined ? { rate: d.rate } : {}),
+    ...(d.seats !== undefined ? { seats: d.seats } : {}),
   };
 
   if (existing.currency === "USD") {

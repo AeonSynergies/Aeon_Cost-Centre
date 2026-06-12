@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { prorateClientFee, prorateResourceSalary } from "./prorateEngine";
+import { prorateClientFee, prorateClientFeeWithRevisions, prorateResourceSalary } from "./prorateEngine";
 
 describe("prorateEngine - client fee", () => {
-  it("LEGACY bills the full monthly fee when active any day in the month", () => {
+  it("prorates the first partial month day-accurately for LEGACY too", () => {
+    // 10 Nov 2025 -> 30 Nov = 21 active days of 30 (proration applies to all types now).
     expect(
       prorateClientFee({
         monthlyFee: 300,
@@ -12,7 +13,7 @@ describe("prorateEngine - client fee", () => {
         periodYear: 2025,
         periodMonth: 11,
       })
-    ).toBe(300);
+    ).toBeCloseTo((300 * 21) / 30, 6);
   });
 
   it("NEW prorates the first partial month by days active", () => {
@@ -148,5 +149,35 @@ describe("prorateEngine - resource salary", () => {
         periodMonth: 6,
       })
     ).toBeCloseTo((30000 * 10) / 30, 6);
+  });
+});
+
+describe("prorateEngine - client fee mid-month revision", () => {
+  it("prorates client fee with a mid-month revision", () => {
+    const result = prorateClientFeeWithRevisions({
+      revisions: [
+        { monthlyFeeUsd: 200, effectiveFrom: new Date(2026, 0, 1) },
+        { monthlyFeeUsd: 300, effectiveFrom: new Date(2026, 4, 15) },
+      ],
+      startDate: new Date(2026, 0, 1),
+      endDate: null,
+      periodYear: 2026,
+      periodMonth: 5,
+      billingType: "LEGACY",
+    });
+    // May 1-14 (14d) @ $200: 200×14/31 = 90.32 ; May 15-31 (17d) @ $300: 300×17/31 = 164.52
+    expect(result).toBeCloseTo(254.84, 2);
+  });
+
+  it("returns the single-fee proration when no revision falls in the period", () => {
+    const result = prorateClientFeeWithRevisions({
+      revisions: [{ monthlyFeeUsd: 200, effectiveFrom: new Date(2026, 0, 1) }],
+      startDate: new Date(2026, 0, 1),
+      endDate: null,
+      periodYear: 2026,
+      periodMonth: 5,
+      billingType: "LEGACY",
+    });
+    expect(result).toBeCloseTo(200, 6); // full month
   });
 });
