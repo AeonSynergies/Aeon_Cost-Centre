@@ -1,5 +1,5 @@
 {
-  "name": "aeon-control-centre",
+  "name": "aeon-ops-controller",
   "version": "1.0.0",
   "private": true,
   "scripts": {

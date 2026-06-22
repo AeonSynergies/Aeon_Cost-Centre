@@ -16,7 +16,7 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Aeon Ops Controller",
+  title: "Aeon Control Centre",
   description: "Financial operations platform for Aeon",
 };
 
