@@ -61,21 +61,39 @@ export function PackageBlock({
         <Button size="sm" variant="ghost" onClick={onRemove}><Trash2 size={13} /></Button>
       </div>
 
-      <div className="mt-3 space-y-1.5">
+      {/* Column headers */}
+      <div className="mt-3 flex items-center gap-2 border-b border-[#E8ECF4] pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+        <span className="w-4" />
+        <span className="w-16">Service</span>
+        <span className="flex-1">Name</span>
+        <span className="w-24 text-right">Monthly Fee ($)</span>
+        <span className="w-16 text-right">Disc %</span>
+        <span className="w-24 text-right">Discounted Fee ($)</span>
+      </div>
+
+      <div className="mt-1.5 space-y-1.5">
         {services.map((svc) => {
           const en = block.entries[svc.id];
+          // Effective discount for this row depends on the block's discount mode.
+          const effDisc = block.mode === "PER_SERVICE" ? (en?.discountPct ?? 0) : block.mode === "PER_PACKAGE" ? block.blockDiscount : 0;
+          const discountedFee = (en?.fee ?? 0) * (1 - effDisc / 100);
           return (
             <div key={svc.id} className="flex items-center gap-2 text-[12px]">
               <Checkbox checked={!!en?.selected} onChange={() => onToggleService(svc.id)} />
               <span className="w-16 font-mono text-[11px]">{svc.code}</span>
               <span className="flex-1 text-[#64748B]">{svc.name}</span>
-              {en?.selected && (
+              {en?.selected ? (
                 <>
                   <Input className="h-[28px] w-24" type="number" value={en.fee} onChange={(e) => onPatch({ entries: { ...block.entries, [svc.id]: { ...en, fee: Number(e.target.value) } } })} />
-                  {block.mode === "PER_SERVICE" && (
+                  {block.mode === "PER_SERVICE" ? (
                     <Input className="h-[28px] w-16" type="number" placeholder="%" value={en.discountPct} onChange={(e) => onPatch({ entries: { ...block.entries, [svc.id]: { ...en, discountPct: Number(e.target.value) } } })} />
+                  ) : (
+                    <span className="w-16 text-right text-[#94A3B8]">{effDisc}%</span>
                   )}
+                  <span className="w-24 text-right font-medium tabular-nums text-[#0F1629]">{formatUsd(discountedFee)}</span>
                 </>
+              ) : (
+                <><span className="w-24" /><span className="w-16" /><span className="w-24" /></>
               )}
             </div>
           );

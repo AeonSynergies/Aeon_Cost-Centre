@@ -78,6 +78,7 @@ export default function ClientDetail({ params }: { params: { id: string } }) {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="services">Services</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
+          <TabsTrigger value="expenses">Expenses</TabsTrigger>
           <TabsTrigger value="utilisation">Utilisation Data</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
         </TabsList>
@@ -108,6 +109,21 @@ export default function ClientDetail({ params }: { params: { id: string } }) {
                 <Row k="Net Revenue ($)" v={m ? formatUsd(m.waterfall.netRevenueUsd) : "—"} />
                 <Row k="Net Revenue (INR)" v={m ? formatInr(m.waterfall.netRevenueInr) : "—"} />
               </dl>
+            </Card>
+            <Card className="p-4">
+              <SectionTitle>This Month Expenses</SectionTitle>
+              {(() => {
+                const tm = (c?.expenses ?? []).filter((e) => e.periodYear === periodYear && e.periodMonth === periodMonth);
+                const total = tm.reduce((s, e) => s + (e.amountInr ?? 0), 0);
+                const billable = tm.filter((e) => e.isBillable).reduce((s, e) => s + (e.amountInr ?? 0), 0);
+                return (
+                  <dl className="mt-2 space-y-1 text-[12px]">
+                    <Row k="Total Expenses" v={formatInr(total)} />
+                    <Row k="Billable to Client" v={formatInr(billable)} />
+                    <Row k="Internal (non-billable)" v={formatInr(total - billable)} />
+                  </dl>
+                );
+              })()}
             </Card>
           </div>
         </TabsContent>
@@ -152,19 +168,22 @@ export default function ClientDetail({ params }: { params: { id: string } }) {
               <div className="py-10 text-center text-[13px] text-[#64748B]">No billing records yet. Generate from the Billing page.</div>
             )}
           </Card>
+        </TabsContent>
 
-          <Card className="mt-3 p-4">
+        <TabsContent value="expenses">
+          <Card className="p-4">
             <SectionTitle>Client Expenses</SectionTitle>
             {c?.expenses && c.expenses.length > 0 ? (
               <div className="mt-2 max-h-[320px] overflow-auto">
                 <table className="w-full whitespace-nowrap text-[12px]">
-                  <thead><tr className="text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Period</th><th>Description</th><th>Category</th><th>Amount</th><th>Currency</th><th>Billable</th></tr></thead>
+                  <thead><tr className="text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Month</th><th>Description</th><th>Category</th><th>Amount</th><th>Currency</th><th>Billable</th><th>Status</th></tr></thead>
                   <tbody>
                     {c.expenses.map((e) => (
                       <tr key={e.id} className="border-b border-[#E8ECF4]">
                         <td className="py-2">{e.periodMonth}/{e.periodYear}</td><td>{e.description}</td><td>{e.category}</td>
                         <td>{e.currency === "USD" ? formatUsd(e.amountUsd ?? 0) : formatInr(e.amountInr ?? 0)}</td><td><Badge tone="info">{e.currency}</Badge></td>
                         <td><Badge tone={e.isBillable ? "success" : "neutral"}>{e.isBillable ? "Yes" : "No"}</Badge></td>
+                        <td><Badge tone="neutral">Recorded</Badge></td>
                       </tr>
                     ))}
                   </tbody>

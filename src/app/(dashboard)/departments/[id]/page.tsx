@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { ArrowLeft } from "lucide-react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { KpiCard } from "@/components/common/KpiCard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CategoryBadge, CodeBadges, StatusBadge } from "@/components/common/StatusBadge";
@@ -51,60 +51,44 @@ export default function DepartmentDetail({ params }: { params: { id: string } })
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="pnl">P&amp;L</TabsTrigger>
+          <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="services">Services</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
-          <div className="grid gap-3 lg:grid-cols-3">
-            <Card className="p-4"><SectionTitle>Head</SectionTitle><p className="mt-1.5 text-[14px] font-medium">{d?.head?.name ?? "—"}</p></Card>
-            <Card className="p-4"><SectionTitle>Category</SectionTitle><div className="mt-1.5">{d && <CategoryBadge category={d.category} />}</div></Card>
-            <Card className="p-4"><SectionTitle>Cost Centres</SectionTitle><p className="mt-1.5 text-[13px] text-[#64748B]">{d?.costCentres.map((c) => c.name).join(", ") || "—"}</p></Card>
-          </div>
+          {(() => {
+            const surplus = k?.surplusInr ?? 0;
+            const statusLabel = surplus > 0 ? "Profitable" : surplus < 0 ? "Loss" : "Break-even";
+            const statusTone = surplus > 0 ? "success" : surplus < 0 ? "error" : "neutral";
+            const billableCount = (d?.resources ?? []).filter((r) => r.isBillable).length;
+            return (
+              <>
+                <div className="grid gap-3 lg:grid-cols-3">
+                  <Card className="p-4"><SectionTitle>Head</SectionTitle><p className="mt-1.5 text-[14px] font-medium">{d?.head?.name ?? "—"}</p></Card>
+                  <Card className="p-4"><SectionTitle>Category</SectionTitle><div className="mt-1.5">{d && <CategoryBadge category={d.category} />}</div></Card>
+                  <Card className="p-4"><SectionTitle>Status</SectionTitle><div className="mt-1.5"><Badge tone={statusTone}>{statusLabel}</Badge></div></Card>
+                  <Card className="p-4"><SectionTitle>Resources</SectionTitle><p className="mt-1.5 text-[13px] text-[#64748B]">{d?.resources.length ?? 0} total · {billableCount} billable</p></Card>
+                  <Card className="p-4"><SectionTitle>Services</SectionTitle><div className="mt-1.5"><CodeBadges codes={(d?.services ?? []).map((s) => s.code)} /></div></Card>
+                  <Card className="p-4"><SectionTitle>Cost Centres</SectionTitle><p className="mt-1.5 text-[13px] text-[#64748B]">{d?.costCentres.map((c) => c.name).join(", ") || "—"}</p></Card>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
+                  <KpiCard label="Revenue (₹)" value={k ? formatInr(k.revenueInr) : "—"} />
+                  <KpiCard label="Cost (₹)" value={k ? formatInr(k.totalDeptCostInr) : "—"} />
+                  <KpiCard label="Surplus/(Deficit) (₹)" value={k ? formatInr(k.surplusInr) : "—"} />
+                </div>
+              </>
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="pnl">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            <KpiCard label="Revenue Generated" value={k ? formatInr(k.revenueInr) : "—"} />
-            <KpiCard label="Dept Reserve 50%" value={k ? formatInr(k.deptReserveInr) : "—"} />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <KpiCard label="Total Cost" value={k ? formatInr(k.totalDeptCostInr) : "—"} />
             <KpiCard label="Workforce Cost" value={k ? formatInr(k.workforceCostInr) : "—"} />
-            <KpiCard label="Total Dept Cost" value={k ? formatInr(k.totalDeptCostInr) : "—"} />
-            <KpiCard label="Surplus/(Deficit)" value={k ? formatInr(k.surplusInr) : "—"} />
+            <KpiCard label="Tool / Client Cost" value={k ? formatInr(Math.max(0, k.totalDeptCostInr - k.workforceCostInr)) : "—"} />
+            <KpiCard label="Reserve Budget" value={k ? formatInr(k.deptReserveInr) : "—"} />
           </div>
-
-          <Card className="mt-3 p-4">
-            <SectionTitle>Revenue vs Cost (monthly)</SectionTitle>
-            <div className="mt-3 h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={d?.pnl.monthly ?? []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E8ECF4" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#64748B" }} />
-                  <YAxis tick={{ fontSize: 11, fill: "#64748B" }} width={70} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: number) => formatInr(v)} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="revenueInr" name="Revenue" fill="#3266AD" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="totalCostInr" name="Cost" fill="#D85A30" radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-
-          <Card className="mt-3 p-4">
-            <SectionTitle>Revenue Breakdown</SectionTitle>
-            <table className="mt-2 w-full text-[12px]">
-              <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Client</th><th>Service</th><th>Package</th><th>Monthly Fee ($)</th><th>Net Revenue (₹)</th><th>Dept Share (₹)</th><th>Period</th><th>Status</th></tr></thead>
-              <tbody>
-                {d?.pnl.clientBreakdown.length === 0 && <tr><td colSpan={8} className="py-4 text-center text-[#94A3B8]">No revenue for this period.</td></tr>}
-                {d?.pnl.clientBreakdown.map((b, i) => (
-                  <tr key={i} className="cursor-pointer border-b border-[#E8ECF4] hover:bg-[#F8F9FC]" onClick={() => router.push(`/clients/${b.clientId}`)}>
-                    <td className="py-2 font-medium">{b.client}</td><td className="font-mono text-[11px]">{b.serviceCode}</td>
-                    <td>{b.packageType === "LESS_THAN_25" ? "< 25" : "> 25"}</td><td>{formatUsd(b.monthlyFeeUsd)}</td>
-                    <td>{formatInr(b.netRevenueInr)}</td><td>{formatInr(b.deptShareInr)}</td><td>{b.period}</td><td><StatusBadge status={b.status} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
 
           <Card className="mt-3 p-4">
             <SectionTitle>Monthly P&amp;L</SectionTitle>
@@ -120,6 +104,32 @@ export default function DepartmentDetail({ params }: { params: { id: string } })
                 ))}
               </tbody>
             </table>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="revenue">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <KpiCard label="Revenue Generated" value={k ? formatInr(k.revenueInr) : "—"} />
+            <KpiCard label="Dept Reserve 50%" value={k ? formatInr(k.deptReserveInr) : "—"} />
+            <KpiCard label="Clients / Services" value={String(new Set((d?.pnl.clientBreakdown ?? []).map((b) => b.clientId)).size)} />
+          </div>
+          <Card className="mt-3 p-4">
+            <SectionTitle>Revenue Breakdown</SectionTitle>
+            <div className="mt-2 max-h-[320px] overflow-auto">
+              <table className="w-full whitespace-nowrap text-[12px]">
+                <thead><tr className="text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Client</th><th>Service</th><th>Package</th><th>Monthly Fee ($)</th><th>Net Revenue (₹)</th><th>Dept Share (₹)</th><th>Period</th><th>Status</th></tr></thead>
+                <tbody>
+                  {d?.pnl.clientBreakdown.length === 0 && <tr><td colSpan={8} className="py-4 text-center text-[#94A3B8]">No revenue for this period.</td></tr>}
+                  {d?.pnl.clientBreakdown.map((b, i) => (
+                    <tr key={i} className="cursor-pointer border-b border-[#E8ECF4] hover:bg-[#F8F9FC]" onClick={() => router.push(`/clients/${b.clientId}`)}>
+                      <td className="py-2 font-medium">{b.client}</td><td className="font-mono text-[11px]">{b.serviceCode}</td>
+                      <td>{b.packageType === "LESS_THAN_25" ? "< 25" : "> 25"}</td><td>{formatUsd(b.monthlyFeeUsd)}</td>
+                      <td>{formatInr(b.netRevenueInr)}</td><td>{formatInr(b.deptShareInr)}</td><td>{b.period}</td><td><StatusBadge status={b.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
         </TabsContent>
 
