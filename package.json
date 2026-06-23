@@ -52,11 +52,11 @@
     "typescript": "^5.7.2",
     "@types/node": "^20.17.10",
     "@types/react": "^18.3.18",
-    "@types/react-dom": "^18.3.5"
+    "@types/react-dom": "^18.3.5",
+    "@types/bcryptjs": "^2.4.6"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1",
-    "@types/bcryptjs": "^2.4.6",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.21",
     "prisma": "^5.22.0",
