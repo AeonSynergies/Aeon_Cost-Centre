@@ -9,6 +9,7 @@ const patchSchema = z.object({
   assetType: z.enum(["LAPTOP", "CHARGER", "MOUSE", "KEYBOARD", "MONITOR", "HEADSET", "OTHER"]).optional(),
   description: z.string().nullable().optional(),
   serialNumber: z.string().nullable().optional(),
+  costInr: z.number().min(0).nullable().optional(),
   issueDate: z.string().optional(),
   returnDate: z.string().nullable().optional(),
   status: z.enum(["ISSUED", "RETURNED", "LOST"]).optional(),
@@ -31,11 +32,16 @@ export async function PATCH(
       ...(d.assetType !== undefined ? { assetType: d.assetType } : {}),
       ...(d.description !== undefined ? { description: d.description || null } : {}),
       ...(d.serialNumber !== undefined ? { serialNumber: d.serialNumber || null } : {}),
+      ...(d.costInr !== undefined ? { costInr: d.costInr } : {}),
       ...(d.issueDate !== undefined ? { issueDate: new Date(d.issueDate) } : {}),
       ...(d.returnDate !== undefined ? { returnDate: d.returnDate ? new Date(d.returnDate) : null } : {}),
       ...(d.status !== undefined ? { status: d.status } : {}),
     },
   });
+  // Keep the resource's laptop cost in sync when editing a laptop asset.
+  if (updated.assetType === "LAPTOP" && d.costInr != null) {
+    await prisma.resource.update({ where: { id: params.id }, data: { laptopCostInr: d.costInr, laptopIssueDate: updated.issueDate } });
+  }
   await writeAudit({ userId: u.user.id, entity: "ResourceAsset", entityId: updated.id, resourceId: params.id, action: "UPDATE", after: updated });
   return NextResponse.json({ data: updated });
 }

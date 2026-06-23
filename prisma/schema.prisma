@@ -105,6 +105,7 @@ model ResourceAsset {
   assetType   AssetType
   description String?
   serialNumber String?
+  costInr     Float?
   issueDate   DateTime
   returnDate  DateTime?
   status      AssetStatus @default(ISSUED)

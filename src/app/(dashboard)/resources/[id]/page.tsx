@@ -117,9 +117,10 @@ export default function ResourceDetail({ params }: { params: { id: string } }) {
                     <KV k="Incentive" v={formatInr(cost.incentive)} />
                     <KV k="Allowance" v={formatInr(cost.allowance)} />
                     <KV k="Overhead" v={formatInr(cost.overhead)} />
-                    <KV k="MS365" v={formatInr(cost.ms365Cost)} />
-                    <KV k="Zoom" v={formatInr(cost.zoomCost)} />
-                    <KV k="Laptop (amortised)" v={formatInr(cost.laptopAmortised)} />
+                    {/* Tool costs only appear when the resource has extra-cost records. */}
+                    {r.extraCosts.length > 0 && <KV k="MS365" v={formatInr(cost.ms365Cost)} />}
+                    {r.extraCosts.length > 0 && <KV k="Zoom" v={formatInr(cost.zoomCost)} />}
+                    {cost.laptopAmortised > 0 && <KV k="Laptop (from Assets)" v={`${formatInr(cost.laptopAmortised)} (${formatInr(cost.laptopAmortised * 36)} ÷ 36)`} />}
                     <KV k="Extra Costs (monthly)" v={formatInr(cost.extraMonthly)} />
                     <div className="flex justify-between border-t border-[#E8ECF4] pt-1 font-semibold"><dt>Total Cost</dt><dd>{formatInr(cost.totalCostInr)} <span className="text-[#94A3B8]">({formatUsd(cost.totalCostUsd)})</span></dd></div>
                   </dl>
@@ -191,20 +192,12 @@ function ProfileTab({ resource, onSaved }: { resource: ResourceData; onSaved: ()
 }
 
 function ExtraCostsTab({ resource, onSaved }: { resource: ResourceData; onSaved: () => void }) {
-  const [laptop, setLaptop] = React.useState(resource.laptopCostInr ?? 0);
-  const [issueDate, setIssueDate] = React.useState(resource.laptopIssueDate?.slice(0, 10) ?? "");
-  const [savingLaptop, setSavingLaptop] = React.useState(false);
   const [manual, setManual] = React.useState<boolean>(resource.overheadManual != null);
   const [overhead, setOverhead] = React.useState(resource.overheadManual ?? 0);
   const [savingOverhead, setSavingOverhead] = React.useState(false);
   const [costOpen, setCostOpen] = React.useState(false);
   const [editingCost, setEditingCost] = React.useState<ExtraCostEditing | null>(null);
 
-  const saveLaptop = async () => {
-    setSavingLaptop(true);
-    try { await apiSend(`/api/resources/${resource.id}`, "PATCH", { laptopCostInr: laptop || null, laptopIssueDate: issueDate || null }); toast("Laptop cost saved"); onSaved(); }
-    finally { setSavingLaptop(false); }
-  };
   const saveOverhead = async () => {
     setSavingOverhead(true);
     try { await apiSend(`/api/resources/${resource.id}`, "PATCH", { overheadManual: manual ? Number(overhead) : null }); toast("Overhead saved"); onSaved(); }
@@ -214,17 +207,7 @@ function ExtraCostsTab({ resource, onSaved }: { resource: ResourceData; onSaved:
 
   return (
     <div className="grid gap-3">
-      <Card className="max-w-2xl p-4">
-        <SectionTitle>Laptop</SectionTitle>
-        <div className="mt-2 grid grid-cols-2 gap-3">
-          <div><Label>Total Cost (₹)</Label><Input type="number" value={laptop} onChange={(e) => setLaptop(Number(e.target.value))} /></div>
-          <div><Label>Issue Date</Label><Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} /></div>
-        </div>
-        <div className="mt-2 flex items-center justify-between">
-          <p className="text-[12px] text-[#64748B]">Monthly Amortised: <span className="font-semibold">{formatInr(laptop / 36)}</span>/month</p>
-          <Button size="sm" onClick={saveLaptop} disabled={savingLaptop}>{savingLaptop ? "Saving…" : "Save"}</Button>
-        </div>
-      </Card>
+      <div className="rounded-[7px] bg-[#EEF4FB] px-3 py-2 text-[11px] text-[#3266AD]">Laptop cost is now sourced from the Assets tab — add a laptop there and its amortisation flows into the cost breakdown automatically.</div>
 
       <Card className="max-w-2xl p-4">
         <SectionTitle>Overhead</SectionTitle>
@@ -281,11 +264,12 @@ function AssetsTab({ resourceId, assets, onSaved }: { resourceId: string; assets
       </div>
       <Card className="p-4">
         <table className="w-full text-[12px]">
-          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Type</th><th>Description</th><th>Serial No</th><th>Issue Date</th><th>Return Date</th><th>Status</th></tr></thead>
+          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Type</th><th>Description</th><th>Serial No</th><th>Cost (₹)</th><th>Issue Date</th><th>Return Date</th><th>Status</th></tr></thead>
           <tbody>
             {shown.map((a) => (
               <tr key={a.id} className="cursor-pointer border-b border-[#E8ECF4] hover:bg-[#F8F9FC]" onClick={() => { setEditing(a); setOpen(true); }}>
                 <td className="py-2">{a.assetType}</td><td>{a.description ?? "—"}</td><td className="font-mono text-[11px]">{a.serialNumber ?? "—"}</td>
+                <td>{a.costInr != null ? formatInr(a.costInr) : "—"}</td>
                 <td>{formatDate(a.issueDate)}</td><td>{formatDate(a.returnDate)}</td><td><StatusBadge status={a.status} /></td>
               </tr>
             ))}
