@@ -15,3 +15,8 @@ frontend:
   cache:
     paths:
       - node_modules/**/*
+  customHeaders:
+    - pattern: '**'
+      headers:
+        - key: 'x-frame-options'
+          value: 'SAMEORIGIN'
