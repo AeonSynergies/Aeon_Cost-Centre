@@ -82,6 +82,16 @@ export function calculateRevenueWaterfall(params: {
     params;
   const txnFeeEnabled = params.txnFeeEnabled ?? true;
 
+  // No prorated fee (e.g. client churned before/at the period) -> no charges at
+  // all. Guard here so the CARD fixed Stripe fee ($0.30) doesn't leak through.
+  if (proratedFeeUsd <= 0) {
+    return {
+      totalServiceCostUsd, proratedFeeUsd: 0, discountUsd: 0, discountedFeeUsd: 0, txnFeeUsd: 0,
+      netServiceCostUsd: 0, stripeFeeUsd: 0, grossRevenueUsd: 0, abbieRoyaltyUsd: 0, reserveFundUsd: 0,
+      netRevenueUsd: 0, skydoFeeUsd: 0, netUsdToConvert: 0, usdInrRate: config.usd_inr_fixed_rate, netRevenueInr: 0,
+    };
+  }
+
   const discountUsd = proratedFeeUsd * (discountPct / 100);
   const discountedFeeUsd = proratedFeeUsd - discountUsd;
 

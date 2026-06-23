@@ -44,13 +44,15 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const config = await getSystemConfig();
   const cost = computeResourceCost(resource, config, period);
   const active = isResourceActive(resource, period);
+  const SENTINEL = new Date(2026, 11, 31).getTime();
+  const isTermed = !!resource.terminatedDate && resource.terminatedDate.getTime() !== SENTINEL && resource.terminatedDate < new Date();
 
   // Per-client utilisation% for the period (used in the Assignments tab).
   const utilByClient: Record<string, number> = {};
   for (const l of resource.utilisationLogs) utilByClient[l.clientId] = (utilByClient[l.clientId] ?? 0) + l.utilisationPct;
 
   return NextResponse.json({
-    data: { ...resource, active, status: active ? "ACTIVE" : "TERMED" },
+    data: { ...resource, active, status: isTermed ? "TERMED" : "ACTIVE" },
     cost,
     utilByClient,
   });
@@ -103,4 +105,28 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     after: updated,
   });
   return NextResponse.json({ data: updated });
+}
+
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const u = await requireRole(WRITE);
+  if ("error" in u) return u.error;
+
+  const resource = await prisma.resource.findUnique({ where: { id: params.id } });
+  if (!resource) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const SENTINEL = new Date(2026, 11, 31).getTime();
+  const isTermed = !!resource.terminatedDate && resource.terminatedDate.getTime() !== SENTINEL;
+  if (!isTermed) return badRequest("Only terminated resources can be deleted");
+
+  // Remove dependent records first (no DB-level cascade configured).
+  await prisma.$transaction([
+    prisma.utilisationLog.deleteMany({ where: { resourceId: params.id } }),
+    prisma.resourceAssignment.deleteMany({ where: { resourceId: params.id } }),
+    prisma.resourceAsset.deleteMany({ where: { resourceId: params.id } }),
+    prisma.resourceExtraCost.deleteMany({ where: { resourceId: params.id } }),
+    prisma.resourceRevision.deleteMany({ where: { resourceId: params.id } }),
+    prisma.auditLog.deleteMany({ where: { resourceId: params.id } }),
+    prisma.resource.delete({ where: { id: params.id } }),
+  ]);
+  await writeAudit({ userId: u.user.id, entity: "Resource", entityId: params.id, action: "DELETE", before: resource });
+  return NextResponse.json({ ok: true });
 }

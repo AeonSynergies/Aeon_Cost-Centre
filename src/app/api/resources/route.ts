@@ -32,9 +32,14 @@ export async function GET(req: Request) {
     },
   });
 
+  const SENTINEL = new Date(2026, 11, 31).getTime();
+  const now = new Date();
   const data = resources.map((r) => {
     const cost = computeResourceCost(r, config, period);
     const active = isResourceActive(r, period);
+    // Status reflects actual termination only — a resource with no terminatedDate
+    // (or the open-ended sentinel) is ACTIVE regardless of the viewed period.
+    const isTermed = !!r.terminatedDate && r.terminatedDate.getTime() !== SENTINEL && r.terminatedDate < now;
     const latestRev = [...r.revisions].sort(
       (a, b) => b.effectiveFrom.getTime() - a.effectiveFrom.getTime()
     )[0];
@@ -51,7 +56,7 @@ export async function GET(req: Request) {
       joinedDate: r.joinedDate,
       terminatedDate: r.terminatedDate,
       active,
-      status: active ? "ACTIVE" : "TERMED",
+      status: isTermed ? "TERMED" : "ACTIVE",
       workingDays: latestRev?.workingDays ?? [1, 2, 3, 4, 5],
       totalCostInr: cost.totalCostInr,
       totalCostUsd: cost.totalCostUsd,

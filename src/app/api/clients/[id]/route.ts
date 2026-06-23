@@ -121,3 +121,29 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   await writeAudit({ userId: u.user.id, entity: "Client", entityId: updated.id, action: "UPDATE", before, after: updated });
   return NextResponse.json({ data: updated });
 }
+
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const u = await requireRole(WRITE);
+  if ("error" in u) return u.error;
+
+  const client = await prisma.client.findUnique({ where: { id: params.id } });
+  if (!client) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const SENTINEL = new Date(2026, 11, 31).getTime();
+  const churned = !!client.endDate && client.endDate.getTime() !== SENTINEL && client.endDate < new Date();
+  if (!churned) return badRequest("Only churned clients can be deleted");
+
+  const services = await prisma.clientService.findMany({ where: { clientId: params.id }, select: { id: true } });
+  const serviceIds = services.map((s) => s.id);
+  await prisma.$transaction([
+    prisma.clientServiceRevision.deleteMany({ where: { clientServiceId: { in: serviceIds } } }),
+    prisma.utilisationLog.deleteMany({ where: { clientId: params.id } }),
+    prisma.activityClientOverride.deleteMany({ where: { clientId: params.id } }),
+    prisma.resourceAssignment.deleteMany({ where: { clientId: params.id } }),
+    prisma.billingRecord.deleteMany({ where: { clientId: params.id } }),
+    prisma.expense.deleteMany({ where: { clientId: params.id } }),
+    prisma.clientService.deleteMany({ where: { clientId: params.id } }),
+    prisma.client.delete({ where: { id: params.id } }),
+  ]);
+  await writeAudit({ userId: u.user.id, entity: "Client", entityId: params.id, action: "DELETE", before: client });
+  return NextResponse.json({ ok: true });
+}

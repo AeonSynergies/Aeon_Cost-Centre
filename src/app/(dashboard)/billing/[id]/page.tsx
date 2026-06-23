@@ -14,7 +14,7 @@ import { formatUsd, formatInr } from "@/lib/utils";
 
 type Record_ = {
   id: string; status: string; periodYear: number; periodMonth: number;
-  client: { id: string; name: string; billingType: string; paymentMethod: string; txnFeeEnabled: boolean };
+  client: { id: string; name: string; billingType: string; paymentMethod: string; txnFeeEnabled: boolean; endDate: string | null };
   totalServiceCostUsd: number; proratedFeeUsd: number; discountUsd: number; discountedFeeUsd: number;
   txnFeeUsd: number; netServiceCostUsd: number; stripeFeeUsd: number; grossRevenueUsd: number;
   abbieRoyaltyUsd: number; reserveFundUsd: number; netRevenueUsd: number; skydoFeeUsd: number;
@@ -70,6 +70,12 @@ export default function BillingDetail({ params }: { params: { id: string } }) {
           {r?.status === "DRAFT" && <Button onClick={finalise} disabled={busy}>{busy ? "Finalising…" : "Finalise"}</Button>}
         </div>
       </div>
+
+      {r && r.proratedFeeUsd <= 0 && (
+        <div className="mt-4 max-w-2xl rounded-[8px] border border-[#F3D7C6] bg-[#FAEEDA] px-4 py-3 text-[12px] text-[#633806]">
+          Service ended{r.client.endDate ? ` ${new Date(r.client.endDate).toLocaleDateString()}` : ""} — no charges applicable for this period.
+        </div>
+      )}
 
       <Card className="mt-4 max-w-2xl p-5">
         <SectionTitle>Revenue Waterfall</SectionTitle>

@@ -118,6 +118,17 @@ describe("feeEngine - full waterfall (Card, 10% discount)", () => {
   });
 });
 
+describe("feeEngine - churned/zero prorated fee", () => {
+  it("yields all-zero charges when prorated fee is 0 (CARD fixed fee does not leak)", () => {
+    const w = calculateRevenueWaterfall({ totalServiceCostUsd: 300, proratedFeeUsd: 0, discountPct: 10, paymentMethod: "CARD", config });
+    expect(w.stripeFeeUsd).toBe(0);
+    expect(w.grossRevenueUsd).toBe(0);
+    expect(w.abbieRoyaltyUsd).toBe(0);
+    expect(w.reserveFundUsd).toBe(0);
+    expect(w.netRevenueInr).toBe(0);
+  });
+});
+
 describe("feeEngine - zero discount", () => {
   it("passes the prorated fee straight through as discounted fee", () => {
     const w = calculateRevenueWaterfall({

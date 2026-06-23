@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, Briefcase, Pencil, XCircle, ListChecks } from "lucide-react";
+import { Plus, Briefcase, Pencil, XCircle, ListChecks, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PageShell, Stat } from "@/components/common/PageShell";
 import { FilterBar, FilterSelect } from "@/components/common/FilterBar";
@@ -15,7 +15,9 @@ import { Money } from "@/components/common/CurrencyDisplay";
 import { CodeBadges, StatusBadge } from "@/components/common";
 import { ClientEditModal, ClientTerminateModal, type ClientEditData } from "@/components/clients/ClientModals";
 import { ClientServicesModal } from "@/components/clients/ClientServicesModal";
-import { apiGet } from "@/lib/api-client";
+import { Dialog, DialogContent, DialogBody, DialogFooter } from "@/components/ui/dialog";
+import { apiGet, apiSend } from "@/lib/api-client";
+import { toast } from "@/store/toastStore";
 import { useOpsStore } from "@/store/filterStore";
 import { formatUsd, formatInr, formatDate } from "@/lib/utils";
 
@@ -39,6 +41,16 @@ export default function ClientsPage() {
   const [termOpen, setTermOpen] = React.useState(false);
   const [svcId, setSvcId] = React.useState<string | null>(null);
   const [svcOpen, setSvcOpen] = React.useState(false);
+  const [delTarget, setDelTarget] = React.useState<Row | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
+
+  const confirmDelete = async () => {
+    if (!delTarget) return;
+    setDeleting(true);
+    try { await apiSend(`/api/clients/${delTarget.id}`, "DELETE"); toast("Client deleted"); setDelTarget(null); mutate(); }
+    catch (e) { toast(e instanceof Error ? e.message : "Failed", "error"); }
+    finally { setDeleting(false); }
+  };
 
   const all = data?.data ?? [];
   const statusCounts = {
@@ -82,6 +94,9 @@ export default function ClientsPage() {
           {row.original.status !== "CHURNED" && (
             <Button size="sm" variant="ghost" title="Terminate" onClick={() => { setTermId(row.original.id); setTermOpen(true); }}><XCircle size={12} /></Button>
           )}
+          {row.original.status === "CHURNED" && (
+            <Button size="sm" variant="ghost" title="Delete" onClick={() => setDelTarget(row.original)}><Trash2 size={12} className="text-[#D85A30]" /></Button>
+          )}
         </div>
       ),
     },
@@ -124,6 +139,16 @@ export default function ClientsPage() {
       <ClientEditModal open={editOpen} onOpenChange={setEditOpen} client={editClient} onSaved={() => mutate()} />
       <ClientTerminateModal open={termOpen} onOpenChange={setTermOpen} clientId={termId} onSaved={() => mutate()} />
       <ClientServicesModal open={svcOpen} onOpenChange={setSvcOpen} clientId={svcId} onSaved={() => mutate()} />
+
+      <Dialog open={!!delTarget} onOpenChange={(o) => !o && setDelTarget(null)}>
+        <DialogContent title="Delete Client" width={440}>
+          <DialogBody><p className="text-[13px] text-[#475569]">This will permanently delete <span className="font-semibold">{delTarget?.name}</span> and all related records (services, billing records, assignments, expenses). This cannot be undone.</p></DialogBody>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDelTarget(null)}>Cancel</Button>
+            <Button variant="danger" onClick={confirmDelete} disabled={deleting}>{deleting ? "Deleting…" : "Delete"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageShell>
   );
 }
