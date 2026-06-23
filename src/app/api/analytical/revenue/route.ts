@@ -26,17 +26,10 @@ export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
   const clientId = sp.get("clientId") || "";
   const method = sp.get("method") || "";
-  const status = sp.get("status") || ""; // "" (all) | DRAFT | FINALISED
+  const status = sp.get("status") || ""; // "" (all) | ACTIVE | CHURNED
   const period = periodFromQuery(req.url);
 
   const core = await loadCore(period);
-
-  // Billing status per client for the period (DRAFT default when no record exists).
-  const billing = await prisma.billingRecord.findMany({
-    where: { periodYear: period.year, periodMonth: period.month },
-    select: { clientId: true, status: true },
-  });
-  const statusByClient = new Map(billing.map((b) => [b.clientId, b.status as string]));
 
   const rows = core.clients
     .filter((c) => (!clientId || c.id === clientId) && (!method || c.paymentMethod === method))
@@ -45,15 +38,19 @@ export async function GET(req: Request) {
         { startDate: c.startDate, endDate: c.endDate, billingType: c.billingType, paymentMethod: c.paymentMethod, txnFeeEnabled: c.txnFeeEnabled, services: c.services },
         core.config, period
       );
+      const active = clientActive(c.endDate, period);
       return {
         id: c.id, name: c.name, billingType: c.billingType, paymentMethod: c.paymentMethod,
         packages: Array.from(new Set(c.services.map((s) => s.packageType))),
-        status: statusByClient.get(c.id) ?? "DRAFT",
-        active: clientActive(c.endDate, period),
+        startDate: c.startDate,
+        status: active ? "ACTIVE" : "CHURNED",
+        active,
+        deptReserveInr: wf.netRevenueInr * 0.5,
         ...wf,
       };
     })
-    .filter((r) => !status || r.status === status);
+    .filter((r) => !status || r.status === status)
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
   const agg: RevenueWaterfall = { ...ZERO, usdInrRate: core.rates.rateA };
   for (const r of rows) {

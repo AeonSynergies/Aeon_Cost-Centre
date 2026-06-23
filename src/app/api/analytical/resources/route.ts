@@ -68,6 +68,8 @@ export async function GET(req: Request) {
   };
 
   // Supporting assignment detail.
+  const costByResource = new Map<string, number>();
+  for (const r of resources) costByResource.set(r.id, computeResourceCost(r, core.config, period).totalCostInr);
   const assignments: Array<Record<string, unknown>> = [];
   for (const r of resources) {
     for (const a of r.assignments) {
@@ -76,11 +78,13 @@ export async function GET(req: Request) {
       const cs = csByKey.get(key);
       const share = r.isBillable ? (serviceNetByKey.get(key) ?? 0) / (billableCount.get(key) ?? 1) * 0.5 : 0;
       const log = r.utilisationLogs.find((l) => l.clientId === a.clientId);
+      const fullyLoadedInr = costByResource.get(r.id) ?? 0;
       assignments.push({
         resourceId: r.id, resource: r.name, clientId: a.clientId, client: a.client.name,
         serviceCode: a.service.code, packageType: cs?.pkg ?? "", monthlyFeeUsd: cs?.fee ?? 0,
         assignedFrom: a.assignedFrom, assignedTo: a.assignedTo,
         revenueShareInr: share, utilisationPct: log?.utilisationPct ?? 0,
+        fullyLoadedInr, revenueUtilPct: fullyLoadedInr > 0 ? (share / fullyLoadedInr) * 100 : 0,
         status: !a.assignedTo || new Date(a.assignedTo) >= new Date() ? "ACTIVE" : "TERMED",
       });
     }

@@ -40,11 +40,18 @@ table thead th {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--bg);
+  background: #F8F9FC;
 }
 
 /* Detail-page tables: wrap long table content and scroll horizontally
    rather than squashing columns. Card-wrapped tables opt in via overflow-auto. */
 table {
   white-space: nowrap;
+}
+
+/* Standard cell padding (10px vertical, 14px horizontal). Tables that set their
+   own Tailwind padding utilities still override this per-cell. */
+table th,
+table td {
+  padding: 10px 14px;
 }

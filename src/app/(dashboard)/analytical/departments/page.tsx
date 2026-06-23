@@ -10,6 +10,7 @@ import { KpiCard } from "@/components/common/KpiCard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Money } from "@/components/common/CurrencyDisplay";
 import { CategoryBadge, CodeBadges, StatusBadge } from "@/components/common/StatusBadge";
+import { StatusPills } from "@/components/common/StatusPills";
 import { useReference } from "@/hooks/useReference";
 import { apiGet } from "@/lib/api-client";
 import { useOpsStore } from "@/store/filterStore";
@@ -28,10 +29,12 @@ export default function DeptAnalyticsPage() {
   const { periodYear, periodMonth } = useOpsStore();
   const { data: ref } = useReference();
   const [departmentId, setDepartmentId] = React.useState("");
+  const [bdStatus, setBdStatus] = React.useState("ACTIVE");
   const { data } = useSWR<Data>(`/api/analytical/departments?year=${periodYear}&month=${periodMonth}&departmentId=${departmentId}`, apiGet);
   const k = data?.kpi;
 
-  const bd = data?.breakdown ?? [];
+  const bdAll = data?.breakdown ?? [];
+  const bd = bdAll.filter((b) => !bdStatus || b.status === bdStatus);
   const clientSet = new Set(bd.map((b) => b.clientId));
   const csKpi = {
     activeClients: clientSet.size,
@@ -68,7 +71,7 @@ export default function DeptAnalyticsPage() {
                       <td className="py-2 font-medium">{d.name}</td><td><CategoryBadge category={d.category} /></td><td>{d.head ?? "—"}</td><td>{d.activeResources}</td>
                       <td><CodeBadges codes={d.services} /></td>
                       <td><Money inr={d.revenueInr} usd={d.revenueUsd} primary="INR" /></td>
-                      <td>{formatInr(d.deptReserveInr)}</td>
+                      <td><div className="text-[13px] font-semibold tabular-nums text-[#0F1629]">{formatInr(d.deptReserveInr)}</div></td>
                       <td><Money inr={d.workforceCostInr} usd={d.workforceCostUsd} primary="INR" /></td>
                       <td>{formatInr(d.toolCostInr)}</td>
                       <td><Money inr={d.totalDeptCostInr} usd={d.totalDeptCostUsd} primary="INR" /></td>
@@ -83,6 +86,9 @@ export default function DeptAnalyticsPage() {
         </TabsContent>
 
         <TabsContent value="breakdown">
+          <div className="mb-3">
+            <StatusPills value={bdStatus} onChange={setBdStatus} options={[{ value: "", label: "All" }, { value: "ACTIVE", label: "Active" }, { value: "CHURNED", label: "Churned" }]} />
+          </div>
           <div className="mb-3 grid grid-cols-2 gap-3 md:grid-cols-4">
             <KpiCard label="Active Clients" value={csKpi.activeClients} />
             <KpiCard label="Total Service Revenue ($)" value={formatUsd(csKpi.serviceRevenueUsd)} />

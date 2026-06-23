@@ -62,7 +62,7 @@ export function DataTable<T>({
                   return (
                     <th
                       key={header.id}
-                      className="whitespace-nowrap px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.04em] text-[#64748B]"
+                      className="whitespace-nowrap px-3.5 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.04em] text-[#64748B]"
                     >
                       <div className="flex items-center gap-1">
                         <button
@@ -131,7 +131,7 @@ export function DataTable<T>({
                   )}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-3 py-2.5 align-middle">
+                    <td key={cell.id} className="px-3.5 py-2.5 align-middle">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}

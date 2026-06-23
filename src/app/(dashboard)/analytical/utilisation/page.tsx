@@ -27,6 +27,26 @@ export default function UtilisationAnalyticsPage() {
   const { data } = useSWR<Data>(`/api/analytical/utilisation?year=${periodYear}&month=${periodMonth}`, apiGet);
   const sc = data?.scorecard;
 
+  // Prepend a combined "All" tab spanning every client-facing department.
+  const tabs: Tab[] = React.useMemo(() => {
+    if (!data) return [];
+    const allRows = data.tabs.flatMap((t) => t.rows);
+    const rev = allRows.reduce((s, r) => s + r.revenueAllottedInr, 0);
+    const cost = allRows.reduce((s, r) => s + r.costInr, 0);
+    const clientSet = new Set<string>();
+    const allTab: Tab = {
+      id: "all", name: "All",
+      scorecard: {
+        resources: allRows.length, clients: data.scorecard.activeClients, revenueInr: rev, costInr: cost,
+        marginInr: rev - cost, avgUtilPct: allRows.length ? allRows.reduce((s, r) => s + r.utilisationPct, 0) / allRows.length : 0,
+      },
+      rows: allRows,
+      tierServices: data.tabs.flatMap((t) => t.tierServices),
+    };
+    void clientSet;
+    return [allTab, ...data.tabs];
+  }, [data]);
+
   return (
     <PageShell title="Utilisation" filterBar={<FilterBar />}>
       <Card className="border-0 bg-[#0F1629] p-4 text-white">
@@ -47,11 +67,11 @@ export default function UtilisationAnalyticsPage() {
         </div>
       </Card>
 
-      <Tabs defaultValue={data?.tabs[0]?.id ?? "t0"} className="flex min-h-0 flex-1 flex-col">
+      <Tabs defaultValue="all" className="flex min-h-0 flex-1 flex-col">
         <TabsList>
-          {data?.tabs.map((t) => <TabsTrigger key={t.id} value={t.id}>{t.name}</TabsTrigger>)}
+          {tabs.map((t) => <TabsTrigger key={t.id} value={t.id}>{t.name}</TabsTrigger>)}
         </TabsList>
-        {data?.tabs.map((t) => {
+        {tabs.map((t) => {
           const totalH = t.rows.reduce((s, r) => s + r.totalHrs, 0) || 1;
           const svc = t.rows.reduce((s, r) => s + r.serviceHrs, 0);
           const inv = t.rows.reduce((s, r) => s + r.invoiceHrs, 0);
