@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import useSWR from "swr";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, Lock } from "lucide-react";
 import { PageShell } from "@/components/common/PageShell";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,7 @@ export default function SettingsPage() {
     <PageShell title="Settings">
       <Tabs defaultValue="general" className="flex min-h-0 flex-1 flex-col">
         <TabsList>
-          {["General", "Currency", "Revenue", "Allocation", "Utilisation", "Categories"].map((t) => (
+          {["General", "Currency", "Revenue", "Allocation", "Utilisation", "Activities", "Categories"].map((t) => (
             <TabsTrigger key={t} value={t.toLowerCase().replace(/ /g, "-")}>{t}</TabsTrigger>
           ))}
         </TabsList>
@@ -61,6 +61,7 @@ export default function SettingsPage() {
           <AllocationTab allocations={data?.allocations ?? []} onSaved={mutate} />
         </TabsContent>
         <TabsContent value="utilisation"><UtilisationSection /></TabsContent>
+        <TabsContent value="activities"><ActivitiesSection /></TabsContent>
         <TabsContent value="categories"><CategoriesSection /></TabsContent>
       </Tabs>
     </PageShell>
@@ -96,10 +97,27 @@ function CurrencySection({ config, onSaved }: { config: Record<string, number>; 
     expense_markup_d: config.expense_markup_d ?? 4,
   });
   const [saving, setSaving] = React.useState(false);
+  const [fetching, setFetching] = React.useState(false);
+  const [fetchedAt, setFetchedAt] = React.useState<string | null>(null);
   const rateB = v.usd_inr_market_rate + v.expense_markup_b;
   const rateC = v.usd_inr_market_rate - v.skydo_markup;
   const rateD = v.usd_inr_market_rate - v.expense_markup_d;
   const save = async () => { setSaving(true); try { await apiSend("/api/settings", "POST", { values: v }); toast("Currency settings saved"); onSaved(); } catch (e) { toast(e instanceof Error ? e.message : "Failed", "error"); } finally { setSaving(false); } };
+
+  const fetchLiveRate = async () => {
+    setFetching(true);
+    try {
+      const res = await fetch("https://api.exchangerate-api.com/v4/latest/USD");
+      if (!res.ok) throw new Error("Rate service unavailable");
+      const json = await res.json();
+      const inr = json?.rates?.INR;
+      if (typeof inr !== "number") throw new Error("INR rate not found");
+      setV((s) => ({ ...s, usd_inr_market_rate: Math.round(inr * 100) / 100 }));
+      setFetchedAt(new Date().toLocaleString());
+      toast("Live market rate fetched — review and save");
+    } catch (e) { toast(e instanceof Error ? e.message : "Failed to fetch rate", "error"); }
+    finally { setFetching(false); }
+  };
 
   const rows: { label: string; k: keyof typeof v; desc: string; derived?: number }[] = [
     { label: "Rate A — USD → INR Fixed", k: "usd_inr_fixed_rate", desc: "Used to convert client USD payments to Net Revenue (INR)." },
@@ -117,6 +135,12 @@ function CurrencySection({ config, onSaved }: { config: Record<string, number>; 
             <div className="w-56"><Label className="mb-0">{row.label}</Label></div>
             <Input className="w-28" type="number" step="0.01" value={v[row.k]} onChange={(e) => setV((s) => ({ ...s, [row.k]: Number(e.target.value) }))} />
             {row.derived !== undefined && <span className="text-[12px] font-semibold text-[#1D9E75]">= ₹{row.derived}</span>}
+            {row.k === "usd_inr_market_rate" && (
+              <>
+                <Button size="sm" variant="secondary" onClick={fetchLiveRate} disabled={fetching}>{fetching ? "Fetching…" : "Fetch Live Rate"}</Button>
+                {fetchedAt && <span className="text-[11px] text-[#94A3B8]">Last updated: {fetchedAt}</span>}
+              </>
+            )}
           </div>
           <p className="mt-1 text-[11px] text-[#94A3B8]">{row.desc}</p>
         </div>
@@ -200,21 +224,12 @@ type ServiceTier = { serviceId: string; serviceCode: string; serviceName: string
 
 function UtilisationSection() {
   const { data: ruleData, mutate: mutateRules } = useSWR<{ data: Record<string, number> }>("/api/settings/invoice-rules", apiGet);
-  const { data: actData, mutate: mutateActs } = useSWR<{ data: { id: string; name: string; defaultExpectedHoursPerDay: number; serviceId: string; serviceCode: string; serviceName: string }[] }>("/api/settings/activities", apiGet);
-
   const [rules, setRules] = React.useState<Record<string, number>>({});
-  const [actModal, setActModal] = React.useState(false);
-  const [editAct, setEditAct] = React.useState<ActivityEditing | null>(null);
-  const [svcFilter, setSvcFilter] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => { if (ruleData) setRules(ruleData.data); }, [ruleData]);
 
   const saveRules = async () => { setBusy(true); try { await apiSend("/api/settings/invoice-rules", "PATCH", rules); toast("Invoice rules saved"); mutateRules(); } finally { setBusy(false); } };
-  const delAct = async (a: { id: string; serviceId: string }) => { await apiSend(`/api/services/${a.serviceId}/activities/${a.id}`, "DELETE"); toast("Activity removed"); mutateActs(); };
-
-  const acts = (actData?.data ?? []).filter((a) => !svcFilter || a.serviceId === svcFilter);
-  const services = Array.from(new Map((actData?.data ?? []).map((a) => [a.serviceId, { id: a.serviceId, code: a.serviceCode }])).values());
 
   return (
     <div className="space-y-3">
@@ -229,31 +244,43 @@ function UtilisationSection() {
         </div>
         <div className="mt-3 flex justify-end"><Button onClick={saveRules} disabled={busy}>Save Invoice Rules</Button></div>
       </Card>
-
-      <Card className="p-4">
-        <div className="flex items-center justify-between">
-          <SectionTitle>Activities Library</SectionTitle>
-          <div className="flex items-center gap-2">
-            <Select className="h-[30px] w-40" value={svcFilter} onChange={(e) => setSvcFilter(e.target.value)}><option value="">All Services</option>{services.map((s) => <option key={s.id} value={s.id}>{s.code}</option>)}</Select>
-            <Button size="sm" onClick={() => { setEditAct(null); setActModal(true); }}><Plus size={13} /> Add Activity</Button>
-          </div>
-        </div>
-        <p className="mt-1 text-[11px] text-[#94A3B8]">Shared with the Services screen — changes reflect in /services/[id] and vice versa.</p>
-        <table className="mt-2 w-full text-[12px]">
-          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Service</th><th>Activity</th><th>Default Hrs/Day</th><th></th></tr></thead>
-          <tbody>
-            {acts.map((a) => (
-              <tr key={a.id} className="border-b border-[#E8ECF4]">
-                <td className="py-2 font-mono text-[11px]">{a.serviceCode}</td><td>{a.name}</td><td>{a.defaultExpectedHoursPerDay}</td>
-                <td className="flex gap-1 py-1"><Button size="sm" variant="ghost" onClick={() => { setEditAct({ id: a.id, serviceId: a.serviceId, name: a.name, defaultExpectedHoursPerDay: a.defaultExpectedHoursPerDay }); setActModal(true); }}><Pencil size={12} /></Button><Button size="sm" variant="ghost" onClick={() => delAct(a)}><Trash2 size={12} /></Button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-
-      <ActivityModal open={actModal} onOpenChange={setActModal} editing={editAct} allowServicePick onSaved={() => mutateActs()} />
     </div>
+  );
+}
+
+function ActivitiesSection() {
+  const { data: actData, mutate: mutateActs } = useSWR<{ data: { id: string; name: string; defaultExpectedHoursPerDay: number; serviceId: string; serviceCode: string; serviceName: string }[] }>("/api/settings/activities", apiGet);
+  const [actModal, setActModal] = React.useState(false);
+  const [editAct, setEditAct] = React.useState<ActivityEditing | null>(null);
+  const [svcFilter, setSvcFilter] = React.useState("");
+
+  const delAct = async (a: { id: string; serviceId: string }) => { await apiSend(`/api/services/${a.serviceId}/activities/${a.id}`, "DELETE"); toast("Activity removed"); mutateActs(); };
+  const acts = (actData?.data ?? []).filter((a) => !svcFilter || a.serviceId === svcFilter);
+  const services = Array.from(new Map((actData?.data ?? []).map((a) => [a.serviceId, { id: a.serviceId, code: a.serviceCode }])).values());
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between">
+        <SectionTitle>Activities Library</SectionTitle>
+        <div className="flex items-center gap-2">
+          <Select className="h-[30px] w-40" value={svcFilter} onChange={(e) => setSvcFilter(e.target.value)}><option value="">All Services</option>{services.map((s) => <option key={s.id} value={s.id}>{s.code}</option>)}</Select>
+          <Button size="sm" onClick={() => { setEditAct(null); setActModal(true); }}><Plus size={13} /> Add Activity</Button>
+        </div>
+      </div>
+      <p className="mt-1 text-[11px] text-[#94A3B8]">Shared with the Services screen — changes reflect in /services/[id] and vice versa.</p>
+      <table className="mt-2 w-full text-[12px]">
+        <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Service</th><th>Activity</th><th>Default Hrs/Day</th><th></th></tr></thead>
+        <tbody>
+          {acts.map((a) => (
+            <tr key={a.id} className="border-b border-[#E8ECF4]">
+              <td className="py-2 font-mono text-[11px]">{a.serviceCode}</td><td>{a.name}</td><td>{a.defaultExpectedHoursPerDay}</td>
+              <td className="flex gap-1 py-1"><Button size="sm" variant="ghost" onClick={() => { setEditAct({ id: a.id, serviceId: a.serviceId, name: a.name, defaultExpectedHoursPerDay: a.defaultExpectedHoursPerDay }); setActModal(true); }}><Pencil size={12} /></Button><Button size="sm" variant="ghost" onClick={() => delAct(a)}><Trash2 size={12} /></Button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <ActivityModal open={actModal} onOpenChange={setActModal} editing={editAct} allowServicePick onSaved={() => mutateActs()} />
+    </Card>
   );
 }
 
@@ -302,7 +329,7 @@ function ServiceTierEditor({ svc, onSaved }: { svc: ServiceTier; onSaved: () => 
 }
 
 function CategoriesSection() {
-  const { data, mutate } = useSWR<{ data: Category[] }>("/api/settings/categories", apiGet);
+  const { data, mutate } = useSWR<{ data: (Category & { deptCount: number })[] }>("/api/settings/categories", apiGet);
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState("");
   const [saving, setSaving] = React.useState(false);
@@ -312,12 +339,15 @@ function CategoriesSection() {
     <Card className="p-4">
       <div className="flex items-center justify-between"><SectionTitle>Department Categories</SectionTitle><Button size="sm" onClick={() => setOpen(true)}><Plus size={13} /> Add Category</Button></div>
       <table className="mt-2 w-full text-[12px]">
-        <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Category Name</th><th>Type</th><th></th></tr></thead>
+        <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Category Name</th><th>Departments Using</th><th>Type</th><th></th></tr></thead>
         <tbody>
+          {(data?.data ?? []).length === 0 && <tr><td colSpan={4} className="py-4 text-center text-[#94A3B8]">No categories found.</td></tr>}
           {data?.data.map((c) => (
             <tr key={c.id} className="border-b border-[#E8ECF4]">
-              <td className="py-2 font-medium">{c.name}</td><td><Badge tone={c.isBuiltIn ? "neutral" : "purple"}>{c.isBuiltIn ? "Built-in" : "Custom"}</Badge></td>
-              <td className="py-1 text-right">{!c.isBuiltIn && <Button size="sm" variant="ghost" onClick={() => del(c.id)}><Trash2 size={12} /></Button>}</td>
+              <td className="py-2 font-medium">{c.name}{c.isBuiltIn && <Lock size={11} className="ml-1.5 inline text-[#94A3B8]" />}</td>
+              <td>{c.deptCount}</td>
+              <td><Badge tone={c.isBuiltIn ? "neutral" : "purple"}>{c.isBuiltIn ? "Built-in" : "Custom"}</Badge></td>
+              <td className="py-1 text-right">{!c.isBuiltIn && c.deptCount === 0 && <Button size="sm" variant="ghost" onClick={() => del(c.id)}><Trash2 size={12} /></Button>}</td>
             </tr>
           ))}
         </tbody>
