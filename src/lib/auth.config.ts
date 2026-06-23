@@ -8,6 +8,7 @@ const PUBLIC_PREFIXES = ["/login"];
  * the `authorized` callback; the full provider list is added in src/auth.ts.
  */
 export const authConfig: NextAuthConfig = {
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
