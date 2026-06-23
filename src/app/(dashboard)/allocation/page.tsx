@@ -20,7 +20,7 @@ type DeptSummary = {
   year: number;
   kpi: { totalNetRevenueInr: number; deptReserveInr: number; companyPoolInr: number; overBudgetCount: number };
   buckets: { key: string; pct: number; budget: number; actual: number }[];
-  monthly: { month: string; netRevenueInr: number; deptReserveInr: number; bdBudget: number; bdActual: number; productBudget: number; productActual: number; profitBudget: number; profitActual: number; status: string }[];
+  monthly: { month: string; netRevenueInr: number; deptReserveInr: number; opsActual: number; opsSurplusInr: number; bdBudget: number; bdActual: number; productBudget: number; productActual: number; profitBudget: number; profitActual: number; status: string }[];
 };
 
 export default function AllocationPage() {
@@ -73,17 +73,18 @@ function DeptTab({ year }: { year: number }) {
       <Card className="mt-3 overflow-auto p-4">
         <SectionTitle>Month-on-Month Summary</SectionTitle>
         <table className="mt-2 w-full whitespace-nowrap text-[11px]">
-          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2"></th><th>Month</th><th>Net Revenue</th><th>Dept Reserve 50%</th><th>BD Budget</th><th>BD Actual</th><th>Prod Budget</th><th>Prod Actual</th><th>Profit Budget</th><th>Profit Actual</th><th>Status</th></tr></thead>
+          <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2"></th><th>Month</th><th>Net Revenue (INR)</th><th>Ops Budget</th><th>Ops Actual</th><th>Surplus/(Deficit)</th><th>BD Budget</th><th>BD Actual</th><th>Product Budget</th><th>Product Actual</th><th>Profit / Surplus</th><th>Status</th></tr></thead>
           <tbody>
             {data?.monthly.map((m) => (
               <React.Fragment key={m.month}>
                 <tr className="cursor-pointer border-b border-[#E8ECF4] tabular-nums hover:bg-[#F8F9FC]" onClick={() => setExpanded(expanded === m.month ? null : m.month)}>
                   <td className="py-2">{expanded === m.month ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</td>
                   <td className="font-medium">{m.month}</td>
-                  <td>{formatInr(m.netRevenueInr)}</td><td>{formatInr(m.deptReserveInr)}</td>
+                  <td>{formatInr(m.netRevenueInr)}</td><td>{formatInr(m.deptReserveInr)}</td><td>{formatInr(m.opsActual)}</td>
+                  <td className={m.opsSurplusInr < 0 ? "text-[#D85A30]" : "text-[#1D9E75]"}>{formatInr(m.opsSurplusInr)}</td>
                   <td>{formatInr(m.bdBudget)}</td><td>{formatInr(m.bdActual)}</td>
                   <td>{formatInr(m.productBudget)}</td><td>{formatInr(m.productActual)}</td>
-                  <td>{formatInr(m.profitBudget)}</td><td>{formatInr(m.profitActual)}</td>
+                  <td className={m.profitActual < 0 ? "text-[#D85A30]" : "text-[#1D9E75]"}>{formatInr(m.profitActual)}</td>
                   <td><Badge tone={m.status === "Over budget" ? "error" : "success"}>{m.status}</Badge></td>
                 </tr>
                 {expanded === m.month && <ExpandedRow year={year} month={MONTH_INDEX[m.month]} onClient={(id) => router.push(`/departments/${id}`)} />}
@@ -99,7 +100,7 @@ function DeptTab({ year }: { year: number }) {
 function ExpandedRow({ year, month, onClient }: { year: number; month: number; onClient: (id: string) => void }) {
   const { data } = useSWR<{ breakdown: { id: string; name: string; revenueInr: number; deptReserveInr: number; workforceCostInr: number; toolCostInr: number; totalDeptCostInr: number; surplusInr: number }[] }>(`/api/allocation/departments?year=${year}&month=${month}`, apiGet);
   return (
-    <tr><td colSpan={11} className="bg-[#F8F9FC] p-3">
+    <tr><td colSpan={12} className="bg-[#F8F9FC] p-3">
       <table className="w-full text-[11px]">
         <thead><tr className="text-left text-[10px] uppercase text-[#64748B]"><th className="py-1">Department</th><th>Revenue</th><th>Dept Reserve 50%</th><th>Workforce Cost</th><th>Tool Cost</th><th>Total Dept Cost</th><th>Surplus/(Deficit)</th></tr></thead>
         <tbody>

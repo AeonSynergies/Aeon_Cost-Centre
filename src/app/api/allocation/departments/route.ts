@@ -94,19 +94,27 @@ export async function GET(req: Request) {
   }
 
   // ---- Month-on-month summary + YTD buckets ----
+  const clientFacingIds = new Set(clientFacing.map((d) => d.id));
   const monthly = MONTH_NAMES.map((mName, i) => {
     const p = { year, month: i + 1 };
     const { total } = deptRevenue(p);
     const alloc = calculateAllocation({ netRevenueInr: total, deptReservePct: pct.deptReservePct, businessDevPct: pct.businessDevPct, productDevPct: pct.productDevPct, profitPct: pct.profitPct });
     const act = expenseActuals(i + 1);
-    const overBudget = act.bd > alloc.businessDevInr || act.product > alloc.productDevInr || act.dept > alloc.deptReserveInr;
+    // Ops Actual = total cost of all client-facing (Operations) departments.
+    const wf = workforceByDept(p);
+    let opsActual = 0;
+    for (const [deptId, cost] of wf) if (clientFacingIds.has(deptId)) opsActual += cost;
+    const profitSurplus = total - opsActual - act.bd - act.product;
+    const overBudget = act.bd > alloc.businessDevInr || act.product > alloc.productDevInr || opsActual > alloc.deptReserveInr;
     return {
       month: mName,
       netRevenueInr: total,
-      deptReserveInr: alloc.deptReserveInr,
+      deptReserveInr: alloc.deptReserveInr, // Ops Budget
+      opsActual,
+      opsSurplusInr: alloc.deptReserveInr - opsActual,
       bdBudget: alloc.businessDevInr, bdActual: act.bd,
       productBudget: alloc.productDevInr, productActual: act.product,
-      profitBudget: alloc.profitInr, profitActual: 0,
+      profitBudget: alloc.profitInr, profitActual: profitSurplus,
       status: overBudget ? "Over budget" : "On track",
     };
   });

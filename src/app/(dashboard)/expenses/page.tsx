@@ -83,6 +83,7 @@ export default function ExpensesPage() {
           <TabsTrigger value="usd">USD Expenses</TabsTrigger>
           <TabsTrigger value="tools">Tool Costs</TabsTrigger>
           <TabsTrigger value="clients">Client Expenses</TabsTrigger>
+          <TabsTrigger value="resources">Resource Expenses</TabsTrigger>
         </TabsList>
 
         <TabsContent value="inr">
@@ -174,12 +175,57 @@ export default function ExpensesPage() {
             </div>
           </Card>
         </TabsContent>
+
+        <TabsContent value="resources">
+          <ResourceExpensesTab year={periodYear} month={periodMonth} />
+        </TabsContent>
       </Tabs>
 
       <ExpenseModal open={open} onOpenChange={setOpen} currency={currency} editing={editing} year={periodYear} month={periodMonth} rateB={s?.rateB ?? 86} onSaved={() => mutate()} />
       <ToolCostModal open={toolOpen} onOpenChange={setToolOpen} editing={toolEditing} year={periodYear} month={periodMonth} rateB={s?.rateB ?? 86} onSaved={() => mutate()} />
       <ClientExpenseModal open={clientOpen} onOpenChange={setClientOpen} editing={clientEditing} year={periodYear} month={periodMonth} rateB={s?.rateB ?? 86} onSaved={() => mutate()} />
     </PageShell>
+  );
+}
+
+type ResCost = { id: string; name: string; department: string; costCentre: string; isBillable: boolean; baseSalary: number; incentive: number; allowance: number; overhead: number; laptopAmortised: number; extraMonthly: number; toolCostInr: number; totalCostInr: number };
+
+function ResourceExpensesTab({ year, month }: { year: number; month: number }) {
+  const { data: ref } = useReference();
+  const [deptF, setDeptF] = React.useState("");
+  const { data } = useSWR<{ rows: ResCost[]; summary: { totalCostInr: number; billableCostInr: number; nonBillableCostInr: number } }>(`/api/expenses/resource-costs?year=${year}&month=${month}&departmentId=${deptF}`, apiGet);
+  const rows = data?.rows ?? [];
+  const sm = data?.summary;
+  return (
+    <>
+      <div className="mb-2 flex items-center justify-between">
+        <FilterSelect value={deptF} onChange={setDeptF} placeholder="All Departments" options={(ref?.departments ?? []).map((d) => ({ value: d.id, label: d.name }))} />
+        <span className="text-[11px] text-[#94A3B8]">Read-only — auto-calculated from resource records.</span>
+      </div>
+      <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <Stat label="Total Resource Cost (₹)" value={sm ? formatInr(sm.totalCostInr) : "—"} />
+        <Stat label="Billable Resources Cost (₹)" value={sm ? formatInr(sm.billableCostInr) : "—"} />
+        <Stat label="Non-billable Resources Cost (₹)" value={sm ? formatInr(sm.nonBillableCostInr) : "—"} />
+      </div>
+      <Card className="p-4">
+        <div className="max-h-[320px] overflow-auto">
+          <table className="w-full whitespace-nowrap text-[12px]">
+            <thead><tr className="text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Resource</th><th>Department</th><th>Cost Centre</th><th>Base Salary</th><th>Incentive</th><th>Allowance</th><th>Overhead</th><th>Laptop/mo</th><th>Extra Costs</th><th>Tool Costs</th><th>Total Cost</th><th>Period</th></tr></thead>
+            <tbody>
+              {rows.length === 0 && <tr><td colSpan={12} className="py-4 text-center text-[#94A3B8]">No active resources for this period.</td></tr>}
+              {rows.map((r) => (
+                <tr key={r.id} className="border-b border-[#E8ECF4] tabular-nums">
+                  <td className="py-2 font-medium">{r.name}</td><td>{r.department}</td><td>{r.costCentre}</td>
+                  <td>{formatInr(r.baseSalary)}</td><td>{formatInr(r.incentive)}</td><td>{formatInr(r.allowance)}</td>
+                  <td>{formatInr(r.overhead)}</td><td>{formatInr(r.laptopAmortised)}</td><td>{formatInr(r.extraMonthly)}</td><td>{formatInr(r.toolCostInr)}</td>
+                  <td className="font-semibold text-[#0F1629]">{formatInr(r.totalCostInr)}</td><td>{month}/{year}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </>
   );
 }
 

@@ -10,15 +10,13 @@ import { FilterBar, FilterSelect } from "@/components/common/FilterBar";
 import { DataTable } from "@/components/common/DataTable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogBody, DialogFooter } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { useReference } from "@/hooks/useReference";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { apiGet, apiSend } from "@/lib/api-client";
 import { useOpsStore } from "@/store/filterStore";
 import { toast } from "@/store/toastStore";
-import { formatUsd, formatInr } from "@/lib/utils";
+import { formatUsd, formatInr, formatPeriod } from "@/lib/utils";
 
 type Row = {
   id: string; clientId: string; clientName: string; billingType: string;
@@ -34,8 +32,18 @@ export default function BillingPage() {
   const [statusF, setStatusF] = React.useState("");
   const [typeF, setTypeF] = React.useState("");
   const [clientF, setClientF] = React.useState("");
+  const [generating, setGenerating] = React.useState(false);
   const { data: ref } = useReference();
-  const [genOpen, setGenOpen] = React.useState(false);
+
+  const generatePeriod = async () => {
+    setGenerating(true);
+    try {
+      const res = await apiSend<{ created: number; skipped: number }>("/api/billing/generate", "POST", { periodYear, periodMonth, clientIds: [] });
+      toast(`Generated ${res.created} record(s)${res.skipped ? `, skipped ${res.skipped}` : ""}`);
+      mutate();
+    } catch (e) { toast(e instanceof Error ? e.message : "Failed", "error"); }
+    finally { setGenerating(false); }
+  };
   const { isAdmin } = useCurrentUser();
 
   const rows = (data?.data ?? []).filter((r) => {
@@ -63,10 +71,11 @@ export default function BillingPage() {
 
   const s = data?.summary;
 
+  const noRecords = (s?.total ?? 0) === 0;
+
   return (
     <PageShell
       title="Billing"
-      actions={isAdmin ? <Button onClick={() => setGenOpen(true)}><Zap size={14} /> Generate Billing</Button> : undefined}
       filterBar={
         <FilterBar>
           <FilterSelect value={clientF} onChange={setClientF} placeholder="All Clients" options={(ref?.clients ?? []).map((c) => ({ value: c.id, label: c.name }))} />
@@ -75,6 +84,13 @@ export default function BillingPage() {
         </FilterBar>
       }
     >
+      {isAdmin && noRecords ? (
+        <div className="flex items-center justify-between rounded-[8px] border border-[#F3D7C6] bg-[#FAEEDA] px-4 py-3">
+          <span className="text-[12px] text-[#633806]">No billing records for {formatPeriod(periodYear, periodMonth)}. Billing auto-generates on the 2nd of each month for the previous month.</span>
+          <Button onClick={generatePeriod} disabled={generating}><Zap size={14} /> {generating ? "Generating…" : `Generate for ${formatPeriod(periodYear, periodMonth)}`}</Button>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Stat label="Total Records" value={s?.total ?? "—"} />
         <Stat label="Draft" value={s?.draft ?? "—"} />
@@ -84,57 +100,7 @@ export default function BillingPage() {
       </div>
 
       <DataTable columns={columns} data={rows} loading={isLoading} onRowClick={(r) => router.push(`/billing/${r.id}`)}
-        empty={{ icon: <Receipt size={32} />, heading: "No billing records", subtext: "Generate billing for this period.", cta: <Button onClick={() => setGenOpen(true)}><Zap size={14} /> Generate Billing</Button> }} />
-
-      <GenerateModal open={genOpen} onOpenChange={setGenOpen} year={periodYear} month={periodMonth} existingCount={s?.total ?? 0} onDone={() => mutate()} />
+        empty={{ icon: <Receipt size={32} />, heading: "No billing records", subtext: "Billing auto-generates on the 2nd of each month for the previous month." }} />
     </PageShell>
-  );
-}
-
-function GenerateModal({ open, onOpenChange, year, month, existingCount, onDone }: { open: boolean; onOpenChange: (o: boolean) => void; year: number; month: number; existingCount: number; onDone: () => void }) {
-  const { data: ref } = useReference();
-  const [selected, setSelected] = React.useState<Record<string, boolean>>({});
-  const [busy, setBusy] = React.useState(false);
-
-  React.useEffect(() => {
-    if (open && ref) {
-      const active = ref.clients.filter((c) => !c.endDate || new Date(c.endDate) >= new Date());
-      setSelected(Object.fromEntries(active.map((c) => [c.id, true])));
-    }
-  }, [open, ref]);
-
-  const ids = Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
-
-  const generate = async () => {
-    setBusy(true);
-    try {
-      const res = await apiSend<{ created: number; skipped: number }>("/api/billing/generate", "POST", { periodYear: year, periodMonth: month, clientIds: ids });
-      toast(`Generated ${res.created} record(s)${res.skipped ? `, skipped ${res.skipped}` : ""}`);
-      onDone(); onOpenChange(false);
-    } catch (e) { toast(e instanceof Error ? e.message : "Failed", "error"); }
-    finally { setBusy(false); }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title={`Generate Billing — ${month}/${year}`}>
-        <DialogBody>
-          {existingCount > 0 && <div className="mb-3 rounded-[5px] bg-[#FAEEDA] px-3 py-2 text-[12px] text-[#633806]">{existingCount} record(s) already exist for this period and will be skipped.</div>}
-          <div className="max-h-64 space-y-1 overflow-y-auto">
-            {ref?.clients.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 text-[12px]">
-                <Checkbox checked={!!selected[c.id]} onChange={() => setSelected((s) => ({ ...s, [c.id]: !s[c.id] }))} />
-                {c.name}
-              </label>
-            ))}
-          </div>
-          <p className="mt-3 text-[12px] text-[#64748B]">Will generate up to {ids.length} billing record(s).</p>
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={generate} disabled={busy || ids.length === 0}>{busy ? "Generating…" : "Generate"}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
