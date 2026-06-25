@@ -38,6 +38,7 @@ interface ResourceData {
   id: string; employeeNumber: string; name: string; title: string; isBillable: boolean; status: string;
   joinedDate: string; terminatedDate: string | null; laptopCostInr: number | null; laptopIssueDate: string | null; overheadManual: number | null;
   department: { id: string; name: string }; costCentre: { id: string; name: string; ms365RateInr: number; zoomRateUsd: number };
+  headOfDept: { id: string; name: string }[];
   revisions: Revision[]; assets: Asset[]; extraCosts: ExtraCost[]; assignments: Assignment[];
 }
 interface Cost { baseSalary: number; incentive: number; allowance: number; overhead: number; laptopAmortised: number; ms365Cost: number; zoomCost: number; extraMonthly: number; totalCostInr: number; totalCostUsd: number }
@@ -186,6 +187,11 @@ function ProfileTab({ resource, onSaved }: { resource: ResourceData; onSaved: ()
         <div><Label>Cost Centre</Label><Select value={form.costCentreId} onChange={(e) => setForm((f) => ({ ...f, costCentreId: e.target.value }))}>{ref?.costCentres.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
         <div className="col-span-2 flex items-center gap-2"><Switch checked={form.isBillable} onCheckedChange={(v) => setForm((f) => ({ ...f, isBillable: v }))} /><span className="text-[13px]">Billable</span></div>
       </div>
+      {resource.headOfDept.length > 0 && (
+        <div className="mt-3 rounded-[7px] bg-[#EEF4FB] px-3 py-2 text-[12px] text-[#3266AD]">
+          Department Head of: <span className="font-semibold">{resource.headOfDept.map((d) => d.name).join(", ")}</span>
+        </div>
+      )}
       <div className="mt-3 flex justify-end"><Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save Changes"}</Button></div>
     </Card>
   );

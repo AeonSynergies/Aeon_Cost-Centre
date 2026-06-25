@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, Download, UserCog, Pencil, Trash2 } from "lucide-react";
+import { Plus, Download, UserCog, Pencil, Trash2, Ban } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PageShell, Stat } from "@/components/common/PageShell";
 import { FilterBar, FilterSelect } from "@/components/common/FilterBar";
@@ -21,6 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ResourceForm } from "@/components/resources/ResourceForm";
 import { ResourceEditModal, type ResourceEditing } from "@/components/resources/ResourceEditModal";
+import { ChangeStatusModal } from "@/components/resources/ChangeStatusModal";
 import { Dialog, DialogContent, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { apiGet, apiSend } from "@/lib/api-client";
 import { toast } from "@/store/toastStore";
@@ -60,6 +61,7 @@ export default function ResourcesPage() {
   const [billableOnly, setBillableOnly] = React.useState(false);
   const [delTarget, setDelTarget] = React.useState<Row | null>(null);
   const [deleting, setDeleting] = React.useState(false);
+  const [statusTarget, setStatusTarget] = React.useState<Row | null>(null);
 
   const confirmDelete = async () => {
     if (!delTarget) return;
@@ -126,8 +128,11 @@ export default function ResourcesPage() {
             setEditRes({ id: r.id, employeeNumber: r.employeeNumber, name: r.name, title: r.title, departmentId: r.departmentId, costCentreId: r.costCentreId, isBillable: r.isBillable });
             setEditOpen(true);
           }}><Pencil size={12} /></Button>
+          {row.original.status === "ACTIVE" && (
+            <Button size="sm" variant="ghost" title="Terminate resource" onClick={() => setStatusTarget(row.original)}><Ban size={12} className="text-[#D85A30]" /></Button>
+          )}
           {row.original.status === "TERMED" && (
-            <Button size="sm" variant="ghost" onClick={() => setDelTarget(row.original)}><Trash2 size={12} className="text-[#D85A30]" /></Button>
+            <Button size="sm" variant="ghost" title="Delete permanently" onClick={() => setDelTarget(row.original)}><Trash2 size={12} className="text-[#D85A30]" /></Button>
           )}
         </div>
       ),
@@ -186,6 +191,15 @@ export default function ResourcesPage() {
 
       <ResourceForm open={addOpen} onOpenChange={setAddOpen} onSaved={() => mutate()} />
       <ResourceEditModal open={editOpen} onOpenChange={setEditOpen} resource={editRes} onSaved={() => mutate()} />
+
+      {statusTarget && (
+        <ChangeStatusModal
+          open={!!statusTarget}
+          onOpenChange={(o) => !o && setStatusTarget(null)}
+          resource={{ id: statusTarget.id, status: statusTarget.status, isBillable: statusTarget.isBillable, activeAssignments: 0 }}
+          onSaved={() => { setStatusTarget(null); mutate(); }}
+        />
+      )}
 
       <Dialog open={!!delTarget} onOpenChange={(o) => !o && setDelTarget(null)}>
         <DialogContent title="Delete Resource" width={440}>

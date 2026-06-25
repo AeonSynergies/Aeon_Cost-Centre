@@ -25,6 +25,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     where: { id: params.id },
     include: {
       department: { select: { id: true, name: true } },
+      headOfDept: { select: { id: true, name: true } },
       costCentre: { select: { id: true, name: true, ms365RateInr: true, zoomRateUsd: true } },
       revisions: { orderBy: { effectiveFrom: "desc" } },
       assets: { orderBy: { issueDate: "desc" } },

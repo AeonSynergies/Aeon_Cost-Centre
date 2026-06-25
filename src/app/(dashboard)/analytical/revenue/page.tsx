@@ -24,11 +24,16 @@ type Waterfall = {
 };
 type Row = Waterfall & { id: string; name: string; billingType: string; paymentMethod: string; packages: string[]; status: string; startDate: string; deptReserveInr: number };
 
-const STEP_KIND: Record<string, "base" | "deduct" | "add"> = {
+const STEP_KIND: Record<string, "base" | "deduct" | "add" | "final"> = {
   "Total Service Cost": "base", Discount: "deduct", "Discounted Fee": "base", "Txn Fee": "add",
   "Net Service Cost": "base", "Stripe Fee": "deduct", "Gross Revenue": "base", "Abbie Royalty": "deduct",
   "Reserve Fund": "deduct", "Net Revenue (USD)": "base", "Skydo Fee": "deduct", "Net USD": "base",
+  "Net Revenue (INR)": "final",
 };
+
+function pkgLabel(packages: string[]) {
+  return <CodeBadges codes={packages.map((p) => (p === "LESS_THAN_25" ? "<25" : ">25"))} />;
+}
 
 export default function RevenueAnalyticsPage() {
   const router = useRouter();
@@ -42,7 +47,7 @@ export default function RevenueAnalyticsPage() {
   const w = data?.waterfall;
   const tsc = w?.totalServiceCostUsd || 1;
   const pct = (v: number) => `${((v / tsc) * 100).toFixed(1)}%`;
-  // USD-only waterfall: stops at Net USD (no INR conversion step).
+  // Full waterfall (Total Service Cost → Net Revenue INR) for the Overview tab.
   const steps: { label: string; value: string; pct: string }[] = w ? [
     { label: "Total Service Cost", value: formatUsd(w.totalServiceCostUsd), pct: "100%" },
     { label: "Discount", value: formatUsd(w.discountUsd), pct: pct(w.discountUsd) },
@@ -56,8 +61,9 @@ export default function RevenueAnalyticsPage() {
     { label: "Net Revenue (USD)", value: formatUsd(w.netRevenueUsd), pct: pct(w.netRevenueUsd) },
     { label: "Skydo Fee", value: formatUsd(w.skydoFeeUsd), pct: pct(w.skydoFeeUsd) },
     { label: "Net USD", value: formatUsd(w.netUsdToConvert), pct: pct(w.netUsdToConvert) },
+    { label: "Net Revenue (INR)", value: formatInr(w.netRevenueInr), pct: `× ${w.usdInrRate}` },
   ] : [];
-  const color = (kind: string) => kind === "deduct" ? "border-[#D85A30] text-[#D85A30]" : kind === "add" ? "border-[#1D9E75] text-[#1D9E75]" : "border-[#E8ECF4] text-[#0F1629]";
+  const color = (kind: string) => kind === "deduct" ? "border-[#D85A30] text-[#D85A30]" : kind === "add" ? "border-[#1D9E75] text-[#1D9E75]" : kind === "final" ? "border-[#0F1629] bg-[#0F1629] text-white" : "border-[#E8ECF4] text-[#0F1629]";
 
   const rows = data?.rows ?? [];
 
@@ -72,22 +78,27 @@ export default function RevenueAnalyticsPage() {
         </FilterBar>
       }
     >
-      <Tabs defaultValue="usd" className="flex min-h-0 flex-1 flex-col">
+      <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
         <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="usd">Revenue (USD)</TabsTrigger>
           <TabsTrigger value="inr">Revenue (INR)</TabsTrigger>
         </TabsList>
 
-        {/* ---- USD ---- */}
-        <TabsContent value="usd">
-          <div className="mb-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+        {/* ---- Overview: all KPIs + waterfall ---- */}
+        <TabsContent value="overview">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <KpiCard label="Total Service Cost ($)" value={w ? formatUsd(w.totalServiceCostUsd) : "—"} />
             <KpiCard label="Gross Revenue ($)" value={w ? formatUsd(w.grossRevenueUsd) : "—"} />
             <KpiCard label="Net Revenue (USD)" value={w ? formatUsd(w.netRevenueUsd) : "—"} />
+            <KpiCard label="Net Revenue (INR)" value={w ? formatInr(w.netRevenueInr) : "—"} />
+            <KpiCard label="Abbie Royalty ($)" value={w ? formatUsd(w.abbieRoyaltyUsd) : "—"} />
+            <KpiCard label="Reserve Fund ($)" value={w ? formatUsd(w.reserveFundUsd) : "—"} />
             <KpiCard label="Skydo Fee ($)" value={w ? formatUsd(w.skydoFeeUsd) : "—"} />
+            <KpiCard label="Dept Reserve 50% (INR)" value={w ? formatInr(w.netRevenueInr * 0.5) : "—"} />
           </div>
-          <Card className="p-4">
-            <SectionTitle>Revenue Waterfall (USD)</SectionTitle>
+          <Card className="mt-3 p-4">
+            <SectionTitle>Revenue Waterfall</SectionTitle>
             <div className="mt-3 flex flex-wrap items-stretch gap-1">
               {steps.map((s, i) => (
                 <React.Fragment key={s.label}>
@@ -101,25 +112,27 @@ export default function RevenueAnalyticsPage() {
               ))}
             </div>
           </Card>
-          <Card className="mt-3 p-4">
+        </TabsContent>
+
+        {/* ---- USD table (ends at Net Revenue USD) ---- */}
+        <TabsContent value="usd">
+          <Card className="p-4">
             <SectionTitle>Client Revenue Breakdown (USD)</SectionTitle>
-            <div className="mt-2 max-h-[320px] overflow-auto">
+            <div className="mt-2 max-h-[360px] overflow-auto">
               <table className="w-full whitespace-nowrap text-[11px]">
                 <thead><tr className="text-left text-[10px] uppercase text-[#64748B]">
-                  <th className="py-2">Client</th><th>Billing</th><th>Method</th><th>Package</th><th>Start Date</th><th>Total SC ($)</th><th>Disc ($)</th><th>Txn ($)</th><th>Net SC ($)</th><th>Stripe ($)</th><th>Gross ($)</th><th>Abbie ($)</th><th>Reserve ($)</th><th>Net (USD)</th><th>Skydo ($)</th><th>Net USD</th><th>Status</th>
+                  <th className="py-2">Client</th><th>Start Date</th><th>Billing</th><th>Method</th><th>Package</th><th>Status</th><th>Total SC ($)</th><th>Disc ($)</th><th>Txn ($)</th><th>Net SC ($)</th><th>Stripe ($)</th><th>Gross ($)</th><th>Abbie ($)</th><th>Reserve ($)</th><th>Net Revenue (USD)</th>
                 </tr></thead>
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.id} className="cursor-pointer border-b border-[#E8ECF4] tabular-nums hover:bg-[#F8F9FC]" onClick={() => router.push(`/clients/${r.id}`)}>
-                      <td className="py-2 font-medium">{r.name}</td>
+                      <td className="py-2 font-medium">{r.name}</td><td>{formatDate(r.startDate)}</td>
                       <td><Badge tone={r.billingType === "LEGACY" ? "neutral" : "purple"}>{r.billingType === "LEGACY" ? "Legacy" : "New"}</Badge></td>
                       <td><Badge tone="info">{r.paymentMethod}</Badge></td>
-                      <td><CodeBadges codes={r.packages.map((p) => (p === "LESS_THAN_25" ? "<25" : ">25"))} /></td>
-                      <td>{formatDate(r.startDate)}</td>
+                      <td>{pkgLabel(r.packages)}</td><td><StatusBadge status={r.status} /></td>
                       <td>{formatUsd(r.totalServiceCostUsd)}</td><td>{formatUsd(r.discountUsd)}</td><td>{formatUsd(r.txnFeeUsd)}</td>
                       <td>{formatUsd(r.netServiceCostUsd)}</td><td>{formatUsd(r.stripeFeeUsd)}</td><td>{formatUsd(r.grossRevenueUsd)}</td><td>{formatUsd(r.abbieRoyaltyUsd)}</td>
-                      <td>{formatUsd(r.reserveFundUsd)}</td><td>{formatUsd(r.netRevenueUsd)}</td><td>{formatUsd(r.skydoFeeUsd)}</td><td>{formatUsd(r.netUsdToConvert)}</td>
-                      <td><StatusBadge status={r.status} /></td>
+                      <td>{formatUsd(r.reserveFundUsd)}</td><td>{formatUsd(r.netRevenueUsd)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -128,25 +141,24 @@ export default function RevenueAnalyticsPage() {
           </Card>
         </TabsContent>
 
-        {/* ---- INR ---- */}
+        {/* ---- INR table (starts at Net Revenue USD) ---- */}
         <TabsContent value="inr">
-          <div className="mb-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <KpiCard label="Net USD to Convert ($)" value={w ? formatUsd(w.netUsdToConvert) : "—"} />
-            <KpiCard label="Exchange Rate (A)" value={w ? `₹${w.usdInrRate}` : "—"} />
-            <KpiCard label="Net Revenue (INR)" value={w ? formatInr(w.netRevenueInr) : "—"} />
-            <KpiCard label="Dept Reserve 50% (INR)" value={w ? formatInr(w.netRevenueInr * 0.5) : "—"} />
-          </div>
           <Card className="p-4">
-            <SectionTitle>INR Conversion</SectionTitle>
-            <div className="mt-2 max-h-[320px] overflow-auto">
+            <SectionTitle>Client Revenue Breakdown (INR)</SectionTitle>
+            <div className="mt-2 max-h-[360px] overflow-auto">
               <table className="w-full whitespace-nowrap text-[11px]">
-                <thead><tr className="text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Client</th><th>Net USD ($)</th><th>Exchange Rate</th><th>Net Revenue (INR)</th><th>Dept Reserve (INR)</th><th>Period</th></tr></thead>
+                <thead><tr className="text-left text-[10px] uppercase text-[#64748B]">
+                  <th className="py-2">Client</th><th>Start Date</th><th>Billing</th><th>Method</th><th>Package</th><th>Status</th><th>Net Revenue (USD)</th><th>Skydo ($)</th><th>Net USD ($)</th><th>Exchange Rate</th><th>Net Revenue (INR)</th><th>Dept Reserve 50% (INR)</th>
+                </tr></thead>
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.id} className="cursor-pointer border-b border-[#E8ECF4] tabular-nums hover:bg-[#F8F9FC]" onClick={() => router.push(`/clients/${r.id}`)}>
-                      <td className="py-2 font-medium">{r.name}</td>
-                      <td>{formatUsd(r.netUsdToConvert)}</td><td>₹{r.usdInrRate}</td><td>{formatInr(r.netRevenueInr)}</td><td>{formatInr(r.deptReserveInr)}</td>
-                      <td>{periodMonth}/{periodYear}</td>
+                      <td className="py-2 font-medium">{r.name}</td><td>{formatDate(r.startDate)}</td>
+                      <td><Badge tone={r.billingType === "LEGACY" ? "neutral" : "purple"}>{r.billingType === "LEGACY" ? "Legacy" : "New"}</Badge></td>
+                      <td><Badge tone="info">{r.paymentMethod}</Badge></td>
+                      <td>{pkgLabel(r.packages)}</td><td><StatusBadge status={r.status} /></td>
+                      <td>{formatUsd(r.netRevenueUsd)}</td><td>{formatUsd(r.skydoFeeUsd)}</td><td>{formatUsd(r.netUsdToConvert)}</td>
+                      <td>₹{r.usdInrRate}</td><td>{formatInr(r.netRevenueInr)}</td><td>{formatInr(r.deptReserveInr)}</td>
                     </tr>
                   ))}
                 </tbody>
