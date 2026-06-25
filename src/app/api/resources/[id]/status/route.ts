@@ -10,6 +10,7 @@ const schema = z.discriminatedUnion("type", [
     type: z.literal("TERMINATION"),
     effectiveDate: z.string().min(1),
     reason: z.string().optional(),
+    extraCostStopDate: z.string().optional(),
   }),
   z.object({
     type: z.literal("REACTIVATION"),
@@ -54,6 +55,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         OR: [{ assignedTo: null }, { assignedTo: { gt: termDate } }],
       },
       data: { assignedTo: termDate },
+    });
+
+    // Turn off active extra costs on the chosen stop date (defaults to the
+    // termination date). After effectiveTo they are excluded from cost maths.
+    const stopDate = new Date(body.extraCostStopDate ?? body.effectiveDate);
+    await prisma.resourceExtraCost.updateMany({
+      where: { resourceId: params.id, OR: [{ effectiveTo: null }, { effectiveTo: { gt: stopDate } }] },
+      data: { effectiveTo: stopDate },
     });
   }
 

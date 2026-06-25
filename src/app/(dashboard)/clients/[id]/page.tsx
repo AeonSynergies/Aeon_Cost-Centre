@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { UtilisationDataTab } from "@/components/clients/UtilisationDataTab";
 import { ClientEditModal, ClientTerminateModal, ClientReactivateModal } from "@/components/clients/ClientModals";
 import { ClientServicesModal } from "@/components/clients/ClientServicesModal";
+import { AddToolCostModal } from "@/components/expenses/AddToolCostModal";
 import { apiGet } from "@/lib/api-client";
 import { useOpsStore } from "@/store/filterStore";
 import { formatUsd, formatInr, formatDate } from "@/lib/utils";
@@ -39,6 +40,7 @@ export default function ClientDetail({ params }: { params: { id: string } }) {
   const [termOpen, setTermOpen] = React.useState(false);
   const [reactOpen, setReactOpen] = React.useState(false);
   const [svcOpen, setSvcOpen] = React.useState(false);
+  const [toolOpen, setToolOpen] = React.useState(false);
   const isActive = !c?.endDate || new Date(c.endDate) >= new Date();
 
   return (
@@ -70,6 +72,7 @@ export default function ClientDetail({ params }: { params: { id: string } }) {
           <ClientTerminateModal open={termOpen} onOpenChange={setTermOpen} clientId={c.id} onSaved={() => mutate()} />
           <ClientReactivateModal open={reactOpen} onOpenChange={setReactOpen} clientId={c.id} onSaved={() => mutate()} />
           <ClientServicesModal open={svcOpen} onOpenChange={setSvcOpen} clientId={c.id} onSaved={() => mutate()} />
+          <AddToolCostModal open={toolOpen} onOpenChange={setToolOpen} clientId={c.id} onSaved={() => mutate()} />
         </>
       )}
 
@@ -171,6 +174,7 @@ export default function ClientDetail({ params }: { params: { id: string } }) {
         </TabsContent>
 
         <TabsContent value="expenses">
+          <div className="mb-2 flex justify-end"><Button variant="secondary" onClick={() => setToolOpen(true)}><Plus size={14} /> Add Tool Cost</Button></div>
           <Card className="p-4">
             <SectionTitle>Client Expenses</SectionTitle>
             {c?.expenses && c.expenses.length > 0 ? (

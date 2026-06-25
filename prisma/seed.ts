@@ -98,6 +98,26 @@ async function seedDepartmentCategories() {
   return DEPT_CATEGORIES.length;
 }
 
+const CATEGORIES: { name: string; type: "DEPARTMENT" | "EXPENSE_INR" | "EXPENSE_USD" | "REVENUE_PRODUCT" | "REVENUE_SERVICE" | "ASSET" }[] = [
+  ...["Client Facing", "Administration", "Business Development", "Internal", "SaaS Development"].map((name) => ({ name, type: "DEPARTMENT" as const })),
+  ...["Salary", "Overhead", "Office", "Marketing", "Training", "Equipment", "Other"].map((name) => ({ name, type: "EXPENSE_INR" as const })),
+  ...["Zoom", "Lead Gen", "Software", "Subscription", "Ads", "Other"].map((name) => ({ name, type: "EXPENSE_USD" as const })),
+  ...["SaaS Product", "One-time Product", "License"].map((name) => ({ name, type: "REVENUE_PRODUCT" as const })),
+  ...["BKE", "IDM", "FAR", "PCM", "DRA", "VAS", "VDO"].map((name) => ({ name, type: "REVENUE_SERVICE" as const })),
+  ...["Laptop", "Charger", "Mouse", "Keyboard", "Monitor", "Headset", "Other"].map((name) => ({ name, type: "ASSET" as const })),
+];
+
+async function seedCategories() {
+  for (const c of CATEGORIES) {
+    await prisma.category.upsert({
+      where: { name_type: { name: c.name, type: c.type } },
+      update: { isBuiltIn: true },
+      create: { name: c.name, type: c.type, isBuiltIn: true },
+    });
+  }
+  return CATEGORIES.length;
+}
+
 const COST_CENTRES = [
   { id: "cc-mgmt", name: "Aeon - Management", ms365RateInr: 900, zoomRateUsd: 16.5 },
   { id: "cc-ops", name: "Aeon - Operations", ms365RateInr: 900, zoomRateUsd: 0 },
@@ -529,6 +549,7 @@ async function main() {
   counts.allocationConfig = await seedAllocation();
   counts.departments = await seedDepartments();
   counts.deptCategories = await seedDepartmentCategories();
+  counts.categories = await seedCategories();
   counts.costCentres = await seedCostCentres();
   counts.services = await seedServices();
   counts.resources = await seedResources();

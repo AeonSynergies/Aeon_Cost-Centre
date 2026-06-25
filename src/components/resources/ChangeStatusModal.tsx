@@ -1,12 +1,21 @@
 "use client";
 
 import * as React from "react";
+import useSWR from "swr";
 import { Dialog, DialogContent, DialogBody } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { apiSend } from "@/lib/api-client";
+import { apiGet, apiSend } from "@/lib/api-client";
+import { formatInr } from "@/lib/utils";
+
+type ExtraCost = { id: string; description: string; amountInr: number; frequency: string; effectiveTo: string | null };
+
+function lastDayOfMonth(iso: string) {
+  const d = new Date(iso);
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+}
 
 export interface ChangeStatusTarget {
   id: string;
@@ -31,15 +40,23 @@ export function ChangeStatusModal({
   const [note, setNote] = React.useState("");
   const [billable, setBillable] = React.useState(resource.isBillable);
   const [saving, setSaving] = React.useState(false);
+  const [stopMode, setStopMode] = React.useState<"same" | "month" | "today" | "custom">("same");
+  const [customStop, setCustomStop] = React.useState(new Date().toISOString().slice(0, 10));
   const isActive = resource.status === "ACTIVE";
 
-  React.useEffect(() => { if (open) { setBillable(resource.isBillable); setNote(""); } }, [open, resource.isBillable]);
+  // Active extra costs for this resource (shown only on the Termination tab).
+  const { data: detail } = useSWR<{ data: { extraCosts: ExtraCost[] } }>(open && isActive ? `/api/resources/${resource.id}` : null, apiGet);
+  const activeExtras = (detail?.data.extraCosts ?? []).filter((c) => !c.effectiveTo);
+
+  React.useEffect(() => { if (open) { setBillable(resource.isBillable); setNote(""); setStopMode("same"); } }, [open, resource.isBillable]);
+
+  const stopDate = stopMode === "same" ? effectiveDate : stopMode === "month" ? lastDayOfMonth(effectiveDate) : stopMode === "today" ? new Date().toISOString().slice(0, 10) : customStop;
 
   const doTermToggle = async () => {
     setSaving(true);
     try {
       await apiSend(`/api/resources/${resource.id}/status`, "POST", isActive
-        ? { type: "TERMINATION", effectiveDate, reason: note }
+        ? { type: "TERMINATION", effectiveDate, reason: note, extraCostStopDate: stopDate }
         : { type: "REACTIVATION", effectiveDate, notes: note });
       onSaved(); onOpenChange(false);
     } finally { setSaving(false); }
@@ -70,6 +87,24 @@ export function ChangeStatusModal({
                     <li>Set billable status to Non-billable</li>
                     <li>End all active client assignments on the effective date</li>
                   </ul>
+                </div>
+              )}
+              {isActive && activeExtras.length > 0 && (
+                <div className="mt-3 rounded-[7px] border border-[#E8ECF4] p-3">
+                  <div className="text-[12px] font-semibold text-[#0F1629]">Extra Costs</div>
+                  <ul className="mt-1.5 space-y-0.5 text-[12px] text-[#64748B]">
+                    {activeExtras.map((c) => <li key={c.id} className="flex justify-between"><span>{c.description}</span><span className="tabular-nums">{formatInr(c.amountInr)}/mo</span></li>)}
+                  </ul>
+                  <div className="mt-2 text-[12px] font-medium text-[#0F1629]">From when should extra costs stop?</div>
+                  <div className="mt-1 space-y-1 text-[12px] text-[#475569]">
+                    {([["same", `Same as termination date (${effectiveDate})`], ["month", `End of month (${lastDayOfMonth(effectiveDate)})`], ["today", `Immediately (${new Date().toISOString().slice(0, 10)})`], ["custom", "Custom date"]] as const).map(([val, label]) => (
+                      <label key={val} className="flex items-center gap-2">
+                        <input type="radio" name="stopMode" checked={stopMode === val} onChange={() => setStopMode(val)} className="accent-[#3266AD]" />
+                        {label}
+                      </label>
+                    ))}
+                    {stopMode === "custom" && <Input type="date" value={customStop} onChange={(e) => setCustomStop(e.target.value)} className="w-44" />}
+                  </div>
                 </div>
               )}
               <div className="mt-3"><Label>{isActive ? "Reason (optional)" : "Notes (optional)"}</Label><Textarea value={note} onChange={(e) => setNote(e.target.value)} /></div>

@@ -1,13 +1,15 @@
 "use client";
 
 import * as React from "react";
+import useSWR from "swr";
 import { Dialog, DialogContent, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { apiSend } from "@/lib/api-client";
+import { apiGet, apiSend } from "@/lib/api-client";
 import { toast } from "@/store/toastStore";
+import { formatInr, formatUsd } from "@/lib/utils";
 
 const DRIVER_BANDS = ["0-49", "50-99", "100-149", "150-199", "200-250", "250+"];
 const VAN_BANDS = ["0-20", "21-30", "31-40", "41-50", "51-60", "61-70", "71-80", "81-90", "91-100", "100+"];
@@ -127,7 +129,10 @@ export function ClientTerminateModal({
 }) {
   const [form, setForm] = React.useState({ endDate: "", reason: "Client Request", notes: "" });
   const [saving, setSaving] = React.useState(false);
-  React.useEffect(() => { if (open) setForm({ endDate: new Date().toISOString().slice(0, 10), reason: "Client Request", notes: "" }); }, [open]);
+  const [stopMode, setStopMode] = React.useState<"same" | "today">("same");
+  React.useEffect(() => { if (open) { setForm({ endDate: new Date().toISOString().slice(0, 10), reason: "Client Request", notes: "" }); setStopMode("same"); } }, [open]);
+  const { data: detail } = useSWR<{ data: { expenses: { id: string; description: string; category: string; currency: string; amountInr: number | null; amountUsd: number | null }[] } }>(open && clientId ? `/api/clients/${clientId}` : null, apiGet);
+  const clientCosts = detail?.data.expenses ?? [];
   if (!clientId) return null;
 
   const save = async () => {
@@ -146,6 +151,20 @@ export function ClientTerminateModal({
           <div className="grid gap-3">
             <div><Label>End Date</Label><Input type="date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} /></div>
             <div><Label>Reason</Label><Select value={form.reason} onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}>{["Client Request", "Non-payment", "Contract End", "Other"].map((r) => <option key={r} value={r}>{r}</option>)}</Select></div>
+            {clientCosts.length > 0 && (
+              <div className="rounded-[7px] border border-[#E8ECF4] p-3">
+                <div className="text-[12px] font-semibold text-[#0F1629]">Client Expenses &amp; Tool Costs</div>
+                <ul className="mt-1.5 space-y-0.5 text-[12px] text-[#64748B]">
+                  {clientCosts.map((e) => <li key={e.id} className="flex justify-between"><span>{e.description}</span><span className="tabular-nums">{e.currency === "USD" ? formatUsd(e.amountUsd ?? 0) : formatInr(e.amountInr ?? 0)}</span></li>)}
+                </ul>
+                <div className="mt-2 text-[12px] font-medium text-[#0F1629]">From when should client costs stop?</div>
+                <div className="mt-1 space-y-1 text-[12px] text-[#475569]">
+                  <label className="flex items-center gap-2"><input type="radio" name="clientStop" checked={stopMode === "same"} onChange={() => setStopMode("same")} className="accent-[#3266AD]" /> Same as end date ({form.endDate})</label>
+                  <label className="flex items-center gap-2"><input type="radio" name="clientStop" checked={stopMode === "today"} onChange={() => setStopMode("today")} className="accent-[#3266AD]" /> Immediately (today)</label>
+                </div>
+                <p className="mt-1.5 text-[11px] text-[#94A3B8]">Client expenses are recorded per month, so no further costs are billed after the end date.</p>
+              </div>
+            )}
             <div><Label>Notes (optional)</Label><Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} /></div>
             <p className="text-[11px] text-[#94A3B8]">All active assignments for this client will be auto-closed on the end date.</p>
           </div>

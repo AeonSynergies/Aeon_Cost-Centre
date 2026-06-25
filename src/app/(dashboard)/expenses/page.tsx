@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import useSWR from "swr";
-import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { PageShell, Stat } from "@/components/common/PageShell";
 import { FilterBar, FilterSelect } from "@/components/common/FilterBar";
 import { Card } from "@/components/ui/card";
@@ -12,11 +12,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { MonthSelect, YearSelect } from "@/components/common/MonthSelect";
 import { useReference } from "@/hooks/useReference";
 import { apiGet, apiSend } from "@/lib/api-client";
 import { useOpsStore } from "@/store/filterStore";
 import { toast } from "@/store/toastStore";
-import { formatInr, formatUsd } from "@/lib/utils";
+import { formatInr, formatUsd, formatPeriod, formatDate } from "@/lib/utils";
 
 type Expense = {
   id: string; periodYear: number; periodMonth: number; currency: string; category: string; description: string;
@@ -28,7 +29,6 @@ type Expense = {
 
 const INR_CATEGORIES = ["Salary", "Overhead", "Laptop", "Office", "Marketing", "Other"];
 const USD_CATEGORIES = ["Zoom", "Lead Gen", "Software", "Subscription", "Ads", "Other"];
-const CLIENT_CATEGORIES = ["Travel", "Software", "Subscription", "Hardware", "Reimbursement", "Other"];
 
 export default function ExpensesPage() {
   const { periodYear, periodMonth } = useOpsStore();
@@ -39,11 +39,6 @@ export default function ExpensesPage() {
   const [open, setOpen] = React.useState(false);
   const [currency, setCurrency] = React.useState<"INR" | "USD">("INR");
   const [editing, setEditing] = React.useState<Expense | null>(null);
-  const [toolOpen, setToolOpen] = React.useState(false);
-  const [toolEditing, setToolEditing] = React.useState<Expense | null>(null);
-  const [clientOpen, setClientOpen] = React.useState(false);
-  const [clientEditing, setClientEditing] = React.useState<Expense | null>(null);
-  const [populating, setPopulating] = React.useState(false);
 
   const allRaw = data?.data ?? [];
   const all = allRaw.filter((e) => !ccF || e.costCentreId === ccF);
@@ -58,7 +53,6 @@ export default function ExpensesPage() {
   const del = async (id: string) => { await apiSend(`/api/expenses/${id}`, "DELETE"); toast("Expense removed"); mutate(); };
   const openAdd = (cur: "INR" | "USD") => { setCurrency(cur); setEditing(null); setOpen(true); };
   const openEdit = (e: Expense) => { setCurrency(e.currency as "INR" | "USD"); setEditing(e); setOpen(true); };
-  const autoPopulate = async () => { setPopulating(true); try { const r = await apiSend<{ count: number }>("/api/expenses/tool-costs", "POST", { periodYear, periodMonth }); toast(`Populated ${r.count} tool-cost rows`); mutate(); } catch (e) { toast(e instanceof Error ? e.message : "Failed", "error"); } finally { setPopulating(false); } };
 
   return (
     <PageShell
@@ -84,6 +78,7 @@ export default function ExpensesPage() {
           <TabsTrigger value="tools">Tool Costs</TabsTrigger>
           <TabsTrigger value="clients">Client Expenses</TabsTrigger>
           <TabsTrigger value="resources">Resource Expenses</TabsTrigger>
+          <TabsTrigger value="assets">Assets</TabsTrigger>
         </TabsList>
 
         <TabsContent value="inr">
@@ -96,7 +91,7 @@ export default function ExpensesPage() {
                   {inr.length === 0 && <tr><td colSpan={8} className="py-4 text-center text-[#94A3B8]">No INR expenses.</td></tr>}
                   {inr.map((e) => (
                     <tr key={e.id} className="border-b border-[#E8ECF4]">
-                      <td className="py-2">{e.periodMonth}/{e.periodYear}</td><td>{e.category}</td><td>{e.description}</td>
+                      <td className="py-2">{formatPeriod(e.periodYear, e.periodMonth)}</td><td>{e.category}</td><td>{e.description}</td>
                       <td>{e.departmentName ?? "—"}</td><td>{e.costCentreName ?? "—"}</td><td>{formatInr(e.amountInr ?? 0)}</td><td>{e.addedByName}</td>
                       <td className="flex gap-1 py-1"><Button size="sm" variant="ghost" onClick={() => openEdit(e)}><Pencil size={12} /></Button><Button size="sm" variant="ghost" onClick={() => del(e.id)}><Trash2 size={12} /></Button></td>
                     </tr>
@@ -117,7 +112,7 @@ export default function ExpensesPage() {
                   {usd.length === 0 && <tr><td colSpan={10} className="py-4 text-center text-[#94A3B8]">No USD expenses.</td></tr>}
                   {usd.map((e) => (
                     <tr key={e.id} className="border-b border-[#E8ECF4]">
-                      <td className="py-2">{e.periodMonth}/{e.periodYear}</td><td>{e.category}</td><td>{e.description}</td>
+                      <td className="py-2">{formatPeriod(e.periodYear, e.periodMonth)}</td><td>{e.category}</td><td>{e.description}</td>
                       <td>{e.departmentName ?? "—"}</td><td>{e.costCentreName ?? "—"}</td><td>{formatUsd(e.amountUsd ?? 0)}</td>
                       <td>₹{e.conversionRate ?? "—"}</td><td>{formatInr(e.amountInr ?? 0)}</td><td>{e.addedByName}</td>
                       <td className="flex gap-1 py-1"><Button size="sm" variant="ghost" onClick={() => openEdit(e)}><Pencil size={12} /></Button><Button size="sm" variant="ghost" onClick={() => del(e.id)}><Trash2 size={12} /></Button></td>
@@ -130,22 +125,18 @@ export default function ExpensesPage() {
         </TabsContent>
 
         <TabsContent value="tools">
-          <div className="mb-2 flex justify-end gap-2">
-            <Button variant="secondary" onClick={autoPopulate} disabled={populating}><RefreshCw size={14} /> {populating ? "Populating…" : "Auto-populate from config"}</Button>
-            <Button onClick={() => { setToolEditing(null); setToolOpen(true); }}><Plus size={14} /> Add Tool Cost</Button>
-          </div>
+          <div className="mb-2 text-[11px] text-[#94A3B8]">Read-only — aggregates tool costs added from Resource and Client screens.</div>
           <Card className="p-4">
             <div className="max-h-[320px] overflow-auto">
               <table className="w-full whitespace-nowrap text-[12px]">
-                <thead><tr className="text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Month</th><th>Cost Centre</th><th>Tool Name</th><th>Rate</th><th>Seats</th><th>Total</th><th>Currency</th><th></th></tr></thead>
+                <thead><tr className="text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Month</th><th>Source</th><th>Tool Name</th><th>Rate</th><th>Seats</th><th>Total</th><th>Currency</th></tr></thead>
                 <tbody>
-                  {tools.length === 0 && <tr><td colSpan={8} className="py-4 text-center text-[#94A3B8]">No tool costs. Use “Auto-populate from config”.</td></tr>}
+                  {tools.length === 0 && <tr><td colSpan={7} className="py-4 text-center text-[#94A3B8]">No tool costs. Add them from Resource or Client screens.</td></tr>}
                   {tools.map((e) => (
                     <tr key={e.id} className="border-b border-[#E8ECF4]">
-                      <td className="py-2">{e.periodMonth}/{e.periodYear}</td><td>{e.costCentreName ?? "—"}</td><td>{e.toolName ?? e.description}</td>
+                      <td className="py-2">{formatPeriod(e.periodYear, e.periodMonth)}</td><td>{e.clientName ?? e.costCentreName ?? "Resource"}</td><td>{e.toolName ?? e.description}</td>
                       <td>{e.currency === "USD" ? formatUsd(e.rate ?? 0) : formatInr(e.rate ?? 0)}</td><td>{e.seats ?? "—"}</td>
                       <td>{e.currency === "USD" ? formatUsd(e.amountUsd ?? 0) : formatInr(e.amountInr ?? 0)}</td><td><Badge tone="info">{e.currency}</Badge></td>
-                      <td className="flex gap-1 py-1"><Button size="sm" variant="ghost" onClick={() => { setToolEditing(e); setToolOpen(true); }}><Pencil size={12} /></Button><Button size="sm" variant="ghost" onClick={() => del(e.id)}><Trash2 size={12} /></Button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -155,19 +146,18 @@ export default function ExpensesPage() {
         </TabsContent>
 
         <TabsContent value="clients">
-          <div className="mb-2 flex justify-end"><Button onClick={() => { setClientEditing(null); setClientOpen(true); }}><Plus size={14} /> Add Client Expense</Button></div>
+          <div className="mb-2 text-[11px] text-[#94A3B8]">Read-only — client expenses are added from the Client detail screen.</div>
           <Card className="p-4">
             <div className="max-h-[320px] overflow-auto">
               <table className="w-full whitespace-nowrap text-[12px]">
-                <thead><tr className="text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Month</th><th>Client</th><th>Description</th><th>Category</th><th>Amount</th><th>Currency</th><th>Billable to Client</th><th></th></tr></thead>
+                <thead><tr className="text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Month</th><th>Client</th><th>Description</th><th>Category</th><th>Amount</th><th>Currency</th><th>Billable to Client</th></tr></thead>
                 <tbody>
-                  {clientExp.length === 0 && <tr><td colSpan={8} className="py-4 text-center text-[#94A3B8]">No client expenses.</td></tr>}
+                  {clientExp.length === 0 && <tr><td colSpan={7} className="py-4 text-center text-[#94A3B8]">No client expenses.</td></tr>}
                   {clientExp.map((e) => (
                     <tr key={e.id} className="border-b border-[#E8ECF4]">
-                      <td className="py-2">{e.periodMonth}/{e.periodYear}</td><td className="font-medium">{e.clientName ?? "—"}</td><td>{e.description}</td><td>{e.category}</td>
+                      <td className="py-2">{formatPeriod(e.periodYear, e.periodMonth)}</td><td className="font-medium">{e.clientName ?? "—"}</td><td>{e.description}</td><td>{e.category}</td>
                       <td>{e.currency === "USD" ? formatUsd(e.amountUsd ?? 0) : formatInr(e.amountInr ?? 0)}</td><td><Badge tone="info">{e.currency}</Badge></td>
                       <td><Badge tone={e.isBillable ? "success" : "neutral"}>{e.isBillable ? "Yes" : "No"}</Badge></td>
-                      <td className="flex gap-1 py-1"><Button size="sm" variant="ghost" onClick={() => { setClientEditing(e); setClientOpen(true); }}><Pencil size={12} /></Button><Button size="sm" variant="ghost" onClick={() => del(e.id)}><Trash2 size={12} /></Button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -179,16 +169,18 @@ export default function ExpensesPage() {
         <TabsContent value="resources">
           <ResourceExpensesTab year={periodYear} month={periodMonth} />
         </TabsContent>
+
+        <TabsContent value="assets">
+          <AssetsTab />
+        </TabsContent>
       </Tabs>
 
       <ExpenseModal open={open} onOpenChange={setOpen} currency={currency} editing={editing} year={periodYear} month={periodMonth} rateB={s?.rateB ?? 86} onSaved={() => mutate()} />
-      <ToolCostModal open={toolOpen} onOpenChange={setToolOpen} editing={toolEditing} year={periodYear} month={periodMonth} rateB={s?.rateB ?? 86} onSaved={() => mutate()} />
-      <ClientExpenseModal open={clientOpen} onOpenChange={setClientOpen} editing={clientEditing} year={periodYear} month={periodMonth} rateB={s?.rateB ?? 86} onSaved={() => mutate()} />
     </PageShell>
   );
 }
 
-type ResCost = { id: string; name: string; department: string; costCentre: string; isBillable: boolean; baseSalary: number; incentive: number; allowance: number; overhead: number; laptopAmortised: number; extraMonthly: number; toolCostInr: number; totalCostInr: number };
+type ResCost = { id: string; name: string; department: string; costCentre: string; isBillable: boolean; baseSalary: number; incentive: number; allowance: number; overhead: number; extraMonthly: number; totalCostInr: number };
 
 function ResourceExpensesTab({ year, month }: { year: number; month: number }) {
   const { data: ref } = useReference();
@@ -210,15 +202,15 @@ function ResourceExpensesTab({ year, month }: { year: number; month: number }) {
       <Card className="p-4">
         <div className="max-h-[320px] overflow-auto">
           <table className="w-full whitespace-nowrap text-[12px]">
-            <thead><tr className="text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Resource</th><th>Department</th><th>Cost Centre</th><th>Base Salary</th><th>Incentive</th><th>Allowance</th><th>Overhead</th><th>Laptop/mo</th><th>Extra Costs</th><th>Tool Costs</th><th>Total Cost</th><th>Period</th></tr></thead>
+            <thead><tr className="text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Resource</th><th>Department</th><th>Cost Centre</th><th>Base Salary</th><th>Incentive</th><th>Allowance</th><th>Overhead</th><th>Extra Costs</th><th>Total Cost</th><th>Period</th></tr></thead>
             <tbody>
-              {rows.length === 0 && <tr><td colSpan={12} className="py-4 text-center text-[#94A3B8]">No active resources for this period.</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={10} className="py-4 text-center text-[#94A3B8]">No active resources for this period.</td></tr>}
               {rows.map((r) => (
                 <tr key={r.id} className="border-b border-[#E8ECF4] tabular-nums">
                   <td className="py-2 font-medium">{r.name}</td><td>{r.department}</td><td>{r.costCentre}</td>
                   <td>{formatInr(r.baseSalary)}</td><td>{formatInr(r.incentive)}</td><td>{formatInr(r.allowance)}</td>
-                  <td>{formatInr(r.overhead)}</td><td>{formatInr(r.laptopAmortised)}</td><td>{formatInr(r.extraMonthly)}</td><td>{formatInr(r.toolCostInr)}</td>
-                  <td className="font-semibold text-[#0F1629]">{formatInr(r.totalCostInr)}</td><td>{month}/{year}</td>
+                  <td>{formatInr(r.overhead)}</td><td>{formatInr(r.extraMonthly)}</td>
+                  <td className="font-semibold text-[#0F1629]">{formatInr(r.totalCostInr)}</td><td>{formatPeriod(year, month)}</td>
                 </tr>
               ))}
             </tbody>
@@ -267,8 +259,8 @@ function ExpenseModal({ open, onOpenChange, currency, editing, year, month, rate
       <DialogContent title={`${editing ? "Edit" : "Add"} ${currency} Expense`}>
         <DialogBody>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>Month</Label><Input type="number" min={1} max={12} value={form.periodMonth} onChange={(e) => setForm((f) => ({ ...f, periodMonth: Number(e.target.value) }))} /></div>
-            <div><Label>Year</Label><Input type="number" value={form.periodYear} onChange={(e) => setForm((f) => ({ ...f, periodYear: Number(e.target.value) }))} /></div>
+            <div><Label>Month</Label><MonthSelect value={form.periodMonth} onChange={(m) => setForm((f) => ({ ...f, periodMonth: m }))} /></div>
+            <div><Label>Year</Label><YearSelect value={form.periodYear} onChange={(y) => setForm((f) => ({ ...f, periodYear: y }))} /></div>
             <div><Label>Category</Label><Select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>{cats.map((c) => <option key={c} value={c}>{c}</option>)}</Select></div>
             <div><Label>Amount ({currency === "USD" ? "$" : "₹"})</Label><Input type="number" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: Number(e.target.value) }))} /></div>
             <div className="col-span-2"><Label>Description</Label><Input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} /></div>
@@ -291,110 +283,47 @@ function ExpenseModal({ open, onOpenChange, currency, editing, year, month, rate
   );
 }
 
-function ToolCostModal({ open, onOpenChange, editing, year, month, rateB, onSaved }: { open: boolean; onOpenChange: (o: boolean) => void; editing: Expense | null; year: number; month: number; rateB: number; onSaved: () => void }) {
+function AssetsTab() {
   const { data: ref } = useReference();
-  const [form, setForm] = React.useState({ periodYear: year, periodMonth: month, currency: "INR" as "INR" | "USD", costCentreId: "", toolName: "", rate: 0, seats: 1, conversionRate: rateB });
-  const [saving, setSaving] = React.useState(false);
-
-  React.useEffect(() => {
-    if (open) {
-      if (editing) setForm({ periodYear: editing.periodYear, periodMonth: editing.periodMonth, currency: editing.currency as "INR" | "USD", costCentreId: editing.costCentreId ?? "", toolName: editing.toolName ?? "", rate: editing.rate ?? 0, seats: editing.seats ?? 1, conversionRate: editing.conversionRate ?? rateB });
-      else setForm({ periodYear: year, periodMonth: month, currency: "INR", costCentreId: "", toolName: "", rate: 0, seats: 1, conversionRate: rateB });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editing]);
-
-  const total = form.rate * form.seats;
-  const save = async () => {
-    setSaving(true);
-    try {
-      const body: Record<string, unknown> = {
-        periodYear: Number(form.periodYear), periodMonth: Number(form.periodMonth), currency: form.currency,
-        category: "TOOL_COST", description: `${form.toolName}${form.costCentreId ? "" : ""}`, toolName: form.toolName,
-        costCentreId: form.costCentreId || null, rate: Number(form.rate), seats: Number(form.seats),
-      };
-      if (form.currency === "USD") { body.amountUsd = total; body.conversionRate = Number(form.conversionRate); }
-      else { body.amountInr = total; }
-      if (editing) await apiSend(`/api/expenses/${editing.id}`, "PATCH", body);
-      else await apiSend("/api/expenses", "POST", body);
-      toast("Tool cost saved"); onSaved(); onOpenChange(false);
-    } finally { setSaving(false); }
-  };
-
+  const [resF, setResF] = React.useState("");
+  const [typeF, setTypeF] = React.useState("");
+  const [statusF, setStatusF] = React.useState("");
+  const { data } = useSWR<{ rows: AssetRow[]; summary: { total: number; issued: number; returned: number; monthlyAmortInr: number } }>(`/api/expenses/assets?resourceId=${resF}&assetType=${typeF}&status=${statusF}`, apiGet);
+  const rows = data?.rows ?? [];
+  const sm = data?.summary;
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title={`${editing ? "Edit" : "Add"} Tool Cost`}>
-        <DialogBody>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label>Month</Label><Input type="number" min={1} max={12} value={form.periodMonth} onChange={(e) => setForm((f) => ({ ...f, periodMonth: Number(e.target.value) }))} /></div>
-            <div><Label>Year</Label><Input type="number" value={form.periodYear} onChange={(e) => setForm((f) => ({ ...f, periodYear: Number(e.target.value) }))} /></div>
-            <div className="col-span-2"><Label>Tool Name</Label><Input value={form.toolName} onChange={(e) => setForm((f) => ({ ...f, toolName: e.target.value }))} /></div>
-            <div><Label>Cost Centre</Label><Select value={form.costCentreId} onChange={(e) => setForm((f) => ({ ...f, costCentreId: e.target.value }))}><option value="">None</option>{ref?.costCentres.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
-            <div><Label>Currency</Label><Select value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value as "INR" | "USD" }))}><option value="INR">INR</option><option value="USD">USD</option></Select></div>
-            <div><Label>Rate ({form.currency === "USD" ? "$" : "₹"}/seat)</Label><Input type="number" step="0.01" value={form.rate} onChange={(e) => setForm((f) => ({ ...f, rate: Number(e.target.value) }))} /></div>
-            <div><Label>Seats</Label><Input type="number" value={form.seats} onChange={(e) => setForm((f) => ({ ...f, seats: Number(e.target.value) }))} /></div>
-            {form.currency === "USD" && <div><Label>Conversion Rate (Rate B)</Label><Input type="number" value={form.conversionRate} onChange={(e) => setForm((f) => ({ ...f, conversionRate: Number(e.target.value) }))} /></div>}
-            <div><Label>Total ({form.currency === "USD" ? "$" : "₹"})</Label><Input value={form.currency === "USD" ? formatUsd(total) : formatInr(total)} disabled /></div>
-          </div>
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={save} disabled={saving || !form.toolName || !form.rate}>{saving ? "Saving…" : "Save"}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <FilterSelect value={resF} onChange={setResF} placeholder="All Resources" options={(ref?.resources ?? []).map((r) => ({ value: r.id, label: r.name }))} />
+        <FilterSelect value={typeF} onChange={setTypeF} placeholder="All Types" options={["LAPTOP","CHARGER","MOUSE","KEYBOARD","MONITOR","HEADSET","OTHER"].map((t) => ({ value: t, label: t }))} />
+        <FilterSelect value={statusF} onChange={setStatusF} placeholder="All Status" options={["ISSUED","RETURNED","LOST"].map((t) => ({ value: t, label: t }))} />
+        <span className="ml-auto text-[11px] text-[#94A3B8]">Read-only — assets are added from Resource detail.</span>
+      </div>
+      <div className="mb-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Total Assets" value={sm ? String(sm.total) : "—"} />
+        <Stat label="Active (Issued)" value={sm ? String(sm.issued) : "—"} />
+        <Stat label="Returned" value={sm ? String(sm.returned) : "—"} />
+        <Stat label="Monthly Amortisation (₹)" value={sm ? formatInr(sm.monthlyAmortInr) : "—"} />
+      </div>
+      <Card className="p-4">
+        <div className="max-h-[320px] overflow-auto">
+          <table className="w-full whitespace-nowrap text-[12px]">
+            <thead><tr className="text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Resource</th><th>Asset Type</th><th>Description</th><th>Serial Number</th><th>Issue Date</th><th>Return Date</th><th>Status</th><th>Purchase Cost (₹)</th><th>Monthly Amort. (₹/mo)</th><th>Months Remaining</th></tr></thead>
+            <tbody>
+              {rows.length === 0 && <tr><td colSpan={10} className="py-4 text-center text-[#94A3B8]">No assets.</td></tr>}
+              {rows.map((a) => (
+                <tr key={a.id} className="border-b border-[#E8ECF4]">
+                  <td className="py-2 font-medium">{a.resourceName}</td><td>{a.assetType}</td><td>{a.description ?? "—"}</td><td className="font-mono text-[11px]">{a.serialNumber ?? "—"}</td>
+                  <td>{formatDate(a.issueDate)}</td><td>{formatDate(a.returnDate)}</td><td><Badge tone={a.status === "ISSUED" ? "success" : "neutral"}>{a.status}</Badge></td>
+                  <td>{a.costInr != null ? formatInr(a.costInr) : "—"}</td><td>{formatInr(a.monthlyAmortInr)}</td><td>{a.monthsRemaining}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </>
   );
 }
 
-function ClientExpenseModal({ open, onOpenChange, editing, year, month, rateB, onSaved }: { open: boolean; onOpenChange: (o: boolean) => void; editing: Expense | null; year: number; month: number; rateB: number; onSaved: () => void }) {
-  const { data: ref } = useReference();
-  const [form, setForm] = React.useState({ periodYear: year, periodMonth: month, currency: "INR" as "INR" | "USD", clientId: "", description: "", category: CLIENT_CATEGORIES[0], amount: 0, isBillable: false, conversionRate: rateB });
-  const [saving, setSaving] = React.useState(false);
-
-  React.useEffect(() => {
-    if (open) {
-      if (editing) setForm({ periodYear: editing.periodYear, periodMonth: editing.periodMonth, currency: editing.currency as "INR" | "USD", clientId: editing.clientId ?? "", description: editing.description, category: editing.category, amount: (editing.currency === "USD" ? editing.amountUsd : editing.amountInr) ?? 0, isBillable: editing.isBillable, conversionRate: editing.conversionRate ?? rateB });
-      else setForm({ periodYear: year, periodMonth: month, currency: "INR", clientId: "", description: "", category: CLIENT_CATEGORIES[0], amount: 0, isBillable: false, conversionRate: rateB });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editing]);
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      const body: Record<string, unknown> = {
-        periodYear: Number(form.periodYear), periodMonth: Number(form.periodMonth), currency: form.currency,
-        category: form.category, description: form.description, clientId: form.clientId || null, isBillable: form.isBillable,
-      };
-      if (form.currency === "USD") { body.amountUsd = Number(form.amount); body.conversionRate = Number(form.conversionRate); }
-      else { body.amountInr = Number(form.amount); }
-      if (editing) await apiSend(`/api/expenses/${editing.id}`, "PATCH", body);
-      else await apiSend("/api/expenses", "POST", body);
-      toast("Client expense saved"); onSaved(); onOpenChange(false);
-    } finally { setSaving(false); }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title={`${editing ? "Edit" : "Add"} Client Expense`}>
-        <DialogBody>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label>Month</Label><Input type="number" min={1} max={12} value={form.periodMonth} onChange={(e) => setForm((f) => ({ ...f, periodMonth: Number(e.target.value) }))} /></div>
-            <div><Label>Year</Label><Input type="number" value={form.periodYear} onChange={(e) => setForm((f) => ({ ...f, periodYear: Number(e.target.value) }))} /></div>
-            <div className="col-span-2"><Label>Client</Label><Select value={form.clientId} onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))}><option value="">Select client…</option>{ref?.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
-            <div className="col-span-2"><Label>Description</Label><Input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} /></div>
-            <div><Label>Category</Label><Select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>{CLIENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</Select></div>
-            <div><Label>Currency</Label><Select value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value as "INR" | "USD" }))}><option value="INR">INR</option><option value="USD">USD</option></Select></div>
-            <div><Label>Amount ({form.currency === "USD" ? "$" : "₹"})</Label><Input type="number" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: Number(e.target.value) }))} /></div>
-            {form.currency === "USD" && <div><Label>Conversion Rate (Rate B)</Label><Input type="number" value={form.conversionRate} onChange={(e) => setForm((f) => ({ ...f, conversionRate: Number(e.target.value) }))} /></div>}
-            <label className="col-span-2 flex items-center gap-2 text-[12px] text-[#64748B]"><Switch checked={form.isBillable} onCheckedChange={(v) => setForm((f) => ({ ...f, isBillable: v }))} /> Billable to Client</label>
-          </div>
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={save} disabled={saving || !form.clientId || !form.description || !form.amount}>{saving ? "Saving…" : "Save"}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+type AssetRow = { id: string; resourceName: string; assetType: string; description: string | null; serialNumber: string | null; issueDate: string; returnDate: string | null; status: string; costInr: number | null; monthlyAmortInr: number; monthsRemaining: number };
