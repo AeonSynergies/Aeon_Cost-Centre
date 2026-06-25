@@ -21,6 +21,7 @@ import { AssetModal, type AssetEditing } from "@/components/resources/AssetModal
 import { AssignmentModal } from "@/components/resources/AssignmentModal";
 import { TransferModal, type TransferTarget } from "@/components/resources/TransferModal";
 import { ExtraCostModal, type ExtraCostEditing } from "@/components/resources/ExtraCostModal";
+import { AddToolCostModal } from "@/components/expenses/AddToolCostModal";
 import { ResourceEditModal, type ResourceEditing } from "@/components/resources/ResourceEditModal";
 import { AssignmentEditModal, type AssignmentEditing } from "@/components/resources/AssignmentEditModal";
 import { RevisionEditModal, type RevisionEditing } from "@/components/resources/RevisionEditModal";
@@ -202,6 +203,7 @@ function ExtraCostsTab({ resource, onSaved }: { resource: ResourceData; onSaved:
   const [overhead, setOverhead] = React.useState(resource.overheadManual ?? 0);
   const [savingOverhead, setSavingOverhead] = React.useState(false);
   const [costOpen, setCostOpen] = React.useState(false);
+  const [toolOpen, setToolOpen] = React.useState(false);
   const [editingCost, setEditingCost] = React.useState<ExtraCostEditing | null>(null);
 
   const saveOverhead = async () => {
@@ -225,7 +227,10 @@ function ExtraCostsTab({ resource, onSaved }: { resource: ResourceData; onSaved:
       <Card className="p-4">
         <div className="flex items-center justify-between">
           <SectionTitle>Extra Costs</SectionTitle>
-          <Button size="sm" onClick={() => { setEditingCost(null); setCostOpen(true); }}><Plus size={13} /> Add Extra Cost</Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setToolOpen(true)}><Plus size={13} /> Add Tool Cost</Button>
+            <Button size="sm" onClick={() => { setEditingCost(null); setCostOpen(true); }}><Plus size={13} /> Add Extra Cost</Button>
+          </div>
         </div>
         <table className="mt-2 w-full text-[12px]">
           <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Description</th><th>Category</th><th>Amount (₹)</th><th>Frequency</th><th>From</th><th>To</th><th></th></tr></thead>
@@ -250,6 +255,7 @@ function ExtraCostsTab({ resource, onSaved }: { resource: ResourceData; onSaved:
       </Card>
 
       <ExtraCostModal open={costOpen} onOpenChange={setCostOpen} resourceId={resource.id} editing={editingCost} onSaved={onSaved} />
+      <AddToolCostModal open={toolOpen} onOpenChange={setToolOpen} resourceId={resource.id} onSaved={onSaved} />
     </div>
   );
 }

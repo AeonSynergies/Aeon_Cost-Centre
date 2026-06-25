@@ -75,6 +75,7 @@ model Resource {
   extraCosts     ResourceExtraCost[]
   assignments    ResourceAssignment[]
   utilisationLogs UtilisationLog[]
+  expenses       Expense[]
   headOfDept     Department[] @relation("DeptHead")
   auditLogs      AuditLog[]
   createdAt      DateTime  @default(now())
@@ -408,6 +409,8 @@ model Expense {
   costCentreId String?
   clientId     String?
   client       Client?     @relation(fields: [clientId], references: [id])
+  resourceId   String?
+  resource     Resource?   @relation(fields: [resourceId], references: [id])
   serviceId    String?
   service      Service?    @relation(fields: [serviceId], references: [id])
   isBillable   Boolean     @default(false)
@@ -424,6 +427,7 @@ model Expense {
   @@index([periodYear, periodMonth])
   @@index([costCentreId])
   @@index([departmentId])
+  @@index([resourceId])
   @@index([clientId])
   @@index([serviceId])
 }

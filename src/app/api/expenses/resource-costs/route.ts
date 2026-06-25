@@ -36,11 +36,13 @@ export async function GET(req: Request) {
     .filter((r) => !departmentId || r.departmentId === departmentId)
     .map((r) => {
       const c = computeResourceCost(r, config, period);
+      // Resource Expenses = salary + components + extra costs ONLY.
+      // Tool costs and laptop amortisation are tracked separately (Tool Costs / Assets tabs).
+      const totalCostInr = c.baseSalary + c.incentive + c.allowance + c.overhead + c.extraMonthly;
       return {
         id: r.id, name: r.name, department: r.department.name, costCentre: r.costCentre.name, isBillable: r.isBillable,
         baseSalary: c.baseSalary, incentive: c.incentive, allowance: c.allowance,
-        overhead: c.overhead, laptopAmortised: c.laptopAmortised, extraMonthly: c.extraMonthly,
-        toolCostInr: c.ms365Cost + c.zoomCost, totalCostInr: c.totalCostInr,
+        overhead: c.overhead, extraMonthly: c.extraMonthly, totalCostInr,
       };
     })
     .sort((a, b) => b.totalCostInr - a.totalCostInr);
