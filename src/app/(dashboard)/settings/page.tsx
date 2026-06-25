@@ -20,7 +20,6 @@ type Settings = {
   costCentres: { id: string; name: string; ms365RateInr: number; zoomRateUsd: number }[];
   googleWorkspaceInr: number;
 };
-type Category = { id: string; key: string; name: string; isBuiltIn: boolean };
 
 const GENERAL = [
   { key: "working_days_per_month", label: "Default Working Days / Month" },
@@ -328,26 +327,59 @@ function ServiceTierEditor({ svc, onSaved }: { svc: ServiceTier; onSaved: () => 
   );
 }
 
+type TypedCategory = { id: string; name: string; type: string; isBuiltIn: boolean; usedIn: number };
+
 function CategoriesSection() {
-  const { data, mutate } = useSWR<{ data: (Category & { deptCount: number })[] }>("/api/settings/categories", apiGet);
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="mb-1.5 text-[13px] font-bold text-[#0F1629]">Department Categories</h3>
+        <CategoryGroup type="DEPARTMENT" usedLabel="Departments Using" />
+      </div>
+      <div>
+        <h3 className="mb-1.5 text-[13px] font-bold text-[#0F1629]">Expense Categories</h3>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <CategoryGroup type="EXPENSE_INR" title="INR Expenses" usedLabel="Expenses" />
+          <CategoryGroup type="EXPENSE_USD" title="USD Expenses" usedLabel="Expenses" />
+        </div>
+      </div>
+      <div>
+        <h3 className="mb-1.5 text-[13px] font-bold text-[#0F1629]">Revenue Categories</h3>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <CategoryGroup type="REVENUE_PRODUCT" title="Revenue Type — Product" usedLabel="Used" />
+          <CategoryGroup type="REVENUE_SERVICE" title="Revenue Type — Service" usedLabel="Used" />
+        </div>
+      </div>
+      <div>
+        <h3 className="mb-1.5 text-[13px] font-bold text-[#0F1629]">Asset Categories</h3>
+        <CategoryGroup type="ASSET" usedLabel="Assets" />
+      </div>
+    </div>
+  );
+}
+
+function CategoryGroup({ type, title, usedLabel }: { type: string; title?: string; usedLabel: string }) {
+  const { data, mutate } = useSWR<{ data: TypedCategory[] }>(`/api/settings/categories?type=${type}`, apiGet);
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState("");
   const [saving, setSaving] = React.useState(false);
-  const add = async () => { setSaving(true); try { await apiSend("/api/settings/categories", "POST", { name }); toast("Category added"); setName(""); setOpen(false); mutate(); } catch (e) { toast(e instanceof Error ? e.message : "Failed", "error"); } finally { setSaving(false); } };
+  const add = async () => { setSaving(true); try { await apiSend("/api/settings/categories", "POST", { name, type }); toast("Category added"); setName(""); setOpen(false); mutate(); } catch (e) { toast(e instanceof Error ? e.message : "Failed", "error"); } finally { setSaving(false); } };
   const del = async (id: string) => { try { await apiSend(`/api/settings/categories/${id}`, "DELETE"); toast("Category removed"); mutate(); } catch (e) { toast(e instanceof Error ? e.message : "Failed", "error"); } };
   return (
     <Card className="p-4">
-      <div className="flex items-center justify-between"><SectionTitle>Department Categories</SectionTitle><Button size="sm" onClick={() => setOpen(true)}><Plus size={13} /> Add Category</Button></div>
+      <div className="flex items-center justify-between">
+        <SectionTitle>{title ?? "Categories"}</SectionTitle>
+        <Button size="sm" onClick={() => setOpen(true)}><Plus size={13} /> Add Category</Button>
+      </div>
       <table className="mt-2 w-full text-[12px]">
-        <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Category Name</th><th>Departments Using</th><th>Type</th><th></th></tr></thead>
+        <thead><tr className="border-b border-[#E8ECF4] text-left text-[10px] uppercase text-[#64748B]"><th className="py-2">Category Name</th><th>{usedLabel}</th><th></th></tr></thead>
         <tbody>
-          {(data?.data ?? []).length === 0 && <tr><td colSpan={4} className="py-4 text-center text-[#94A3B8]">No categories found.</td></tr>}
+          {(data?.data ?? []).length === 0 && <tr><td colSpan={3} className="py-3 text-center text-[#94A3B8]">No categories.</td></tr>}
           {data?.data.map((c) => (
             <tr key={c.id} className="border-b border-[#E8ECF4]">
               <td className="py-2 font-medium">{c.name}{c.isBuiltIn && <Lock size={11} className="ml-1.5 inline text-[#94A3B8]" />}</td>
-              <td>{c.deptCount}</td>
-              <td><Badge tone={c.isBuiltIn ? "neutral" : "purple"}>{c.isBuiltIn ? "Built-in" : "Custom"}</Badge></td>
-              <td className="py-1 text-right">{!c.isBuiltIn && c.deptCount === 0 && <Button size="sm" variant="ghost" onClick={() => del(c.id)}><Trash2 size={12} /></Button>}</td>
+              <td>{c.usedIn}</td>
+              <td className="py-1 text-right">{!c.isBuiltIn && c.usedIn === 0 && <Button size="sm" variant="ghost" onClick={() => del(c.id)}><Trash2 size={12} /></Button>}</td>
             </tr>
           ))}
         </tbody>

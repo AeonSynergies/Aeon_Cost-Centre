@@ -4,35 +4,35 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, requireRole, writeAudit, badRequest } from "@/lib/session";
 
 const WRITE = ["ADMIN", "MANAGER"];
+const TYPES = ["DEPARTMENT", "EXPENSE_INR", "EXPENSE_USD", "REVENUE_PRODUCT", "REVENUE_SERVICE", "ASSET"] as const;
+type CatType = (typeof TYPES)[number];
 
-const BUILTIN = [
-  { key: "CLIENT_FACING", name: "Client Facing" },
-  { key: "ADMINISTRATION", name: "Administration" },
-  { key: "BUSINESS_DEVELOPMENT", name: "Business Development" },
-  { key: "INTERNAL", name: "Internal" },
-  { key: "SAAS_DEVELOPMENT", name: "SaaS Development" },
-];
+const keyFromName = (name: string) => name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_");
 
-export async function GET() {
+/** Usage count for a category, by type. */
+async function usageCount(type: CatType, name: string): Promise<number> {
+  if (type === "DEPARTMENT") return prisma.department.count({ where: { category: keyFromName(name) as never } });
+  if (type === "EXPENSE_INR") return prisma.expense.count({ where: { currency: "INR", category: name } });
+  if (type === "EXPENSE_USD") return prisma.expense.count({ where: { currency: "USD", category: name } });
+  if (type === "ASSET") return prisma.resourceAsset.count({ where: { assetType: keyFromName(name) as never } });
+  return 0; // revenue categories — future use
+}
+
+export async function GET(req: Request) {
   const u = await requireUser();
   if ("error" in u) return u.error;
 
-  let cats = await prisma.departmentCategory.findMany({ orderBy: [{ isBuiltIn: "desc" }, { name: "asc" }] });
-  // Resilience: if the table was never seeded, surface the built-in defaults so
-  // the Categories tab is never blank.
-  if (cats.length === 0) {
-    cats = BUILTIN.map((c) => ({ id: c.key, key: c.key, name: c.name, isBuiltIn: true, createdAt: new Date(), updatedAt: new Date() })) as typeof cats;
-  }
+  const typeParam = new URL(req.url).searchParams.get("type") as CatType | null;
+  const where = typeParam && TYPES.includes(typeParam) ? { type: typeParam } : {};
+  const cats = await prisma.category.findMany({ where, orderBy: [{ type: "asc" }, { isBuiltIn: "desc" }, { name: "asc" }] });
 
-  const depts = await prisma.department.findMany({ select: { category: true } });
-  const countByKey = new Map<string, number>();
-  for (const d of depts) countByKey.set(d.category, (countByKey.get(d.category) ?? 0) + 1);
-
-  const data = cats.map((c) => ({ ...c, deptCount: countByKey.get(c.key) ?? 0 }));
+  const data = await Promise.all(
+    cats.map(async (c) => ({ ...c, usedIn: await usageCount(c.type as CatType, c.name) }))
+  );
   return NextResponse.json({ data });
 }
 
-const schema = z.object({ name: z.string().min(1) });
+const schema = z.object({ name: z.string().min(1), type: z.enum(TYPES) });
 
 export async function POST(req: Request) {
   const u = await requireRole(WRITE);
@@ -40,13 +40,13 @@ export async function POST(req: Request) {
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return badRequest("Invalid category payload");
+  const { name, type } = parsed.data;
 
-  const key = parsed.data.name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_");
-  const created = await prisma.departmentCategory.upsert({
-    where: { key },
-    update: { name: parsed.data.name },
-    create: { key, name: parsed.data.name, isBuiltIn: false },
+  const created = await prisma.category.upsert({
+    where: { name_type: { name, type } },
+    update: { name },
+    create: { name, type, isBuiltIn: false },
   });
-  await writeAudit({ userId: u.user.id, entity: "DepartmentCategory", entityId: created.id, action: "CREATE", after: created });
+  await writeAudit({ userId: u.user.id, entity: "Category", entityId: created.id, action: "CREATE", after: created });
   return NextResponse.json({ data: created }, { status: 201 });
 }
