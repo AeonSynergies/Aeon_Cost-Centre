@@ -48,7 +48,7 @@ export default function DepartmentsPage() {
 
   const columns: ColumnDef<Row, unknown>[] = [
     { accessorKey: "name", header: "Department", cell: ({ getValue }) => <span className="font-semibold">{getValue() as string}</span> },
-    { accessorKey: "category", header: "Category", cell: ({ getValue }) => <CategoryBadge category={getValue() as string} /> },
+    { accessorKey: "category", header: "Category", meta: { filterType: "select" }, cell: ({ getValue }) => <CategoryBadge category={getValue() as string} /> },
     { accessorKey: "headName", header: "Head", cell: ({ getValue }) => (getValue() as string) ?? <span className="text-[#94A3B8]">—</span> },
     { accessorKey: "activeResourceCount", header: "Active Resources", enableColumnFilter: false },
     { id: "services", header: "Services", enableColumnFilter: false, cell: ({ row }) => <CodeBadges codes={row.original.services} /> },
@@ -81,6 +81,7 @@ export default function DepartmentsPage() {
         columns={columns}
         data={rows}
         loading={isLoading}
+        frozenColumnId="name"
         onRowClick={(r) => router.push(`/departments/${r.id}`)}
         empty={{ icon: <Building2 size={32} />, heading: "No departments", cta: <Button onClick={() => setOpen(true)}><Plus size={14} /> Add Department</Button> }}
       />

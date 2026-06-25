@@ -42,7 +42,7 @@ export default function ServicesPage() {
   const serviceCols: ColumnDef<ServiceRow, unknown>[] = [
     { accessorKey: "code", header: "Code", cell: ({ getValue }) => <Badge tone="info"><span className="font-mono">{getValue() as string}</span></Badge> },
     { accessorKey: "name", header: "Service Name", cell: ({ getValue }) => <span className="font-medium">{getValue() as string}</span> },
-    { accessorKey: "departmentName", header: "Department" },
+    { accessorKey: "departmentName", header: "Department", meta: { filterType: "select" } },
     { accessorKey: "costCentreName", header: "Cost Centre", cell: ({ getValue }) => <span className="text-[#64748B]">{getValue() as string}</span> },
     { accessorKey: "activeClients", header: "Active Clients", enableColumnFilter: false },
     { accessorKey: "activityCount", header: "Activities", enableColumnFilter: false },
@@ -89,7 +89,7 @@ export default function ServicesPage() {
           <TabsTrigger value="packages">Packages</TabsTrigger>
         </TabsList>
         <TabsContent value="services" className="flex min-h-0 flex-1 flex-col">
-          <DataTable columns={serviceCols} data={services} loading={isLoading} onRowClick={(r) => router.push(`/services/${r.id}`)}
+          <DataTable columns={serviceCols} data={services} loading={isLoading} frozenColumnId="name" onRowClick={(r) => router.push(`/services/${r.id}`)}
             empty={{ icon: <Layers size={32} />, heading: "No services", cta: <Button onClick={() => { setEditingSvc(null); setSvcOpen(true); }}><Plus size={14} /> Add Service</Button> }} />
         </TabsContent>
         <TabsContent value="packages" className="flex min-h-0 flex-1 flex-col">

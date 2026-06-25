@@ -55,7 +55,7 @@ export default function BillingPage() {
 
   const columns: ColumnDef<Row, unknown>[] = [
     { accessorKey: "clientName", header: "Client", cell: ({ getValue }) => <span className="font-semibold">{getValue() as string}</span> },
-    { accessorKey: "billingType", header: "Billing Type", cell: ({ getValue }) => <Badge tone={getValue() === "LEGACY" ? "neutral" : "purple"}>{getValue() === "LEGACY" ? "Legacy" : "New"}</Badge> },
+    { accessorKey: "billingType", header: "Billing Type", meta: { filterType: "select" }, cell: ({ getValue }) => <Badge tone={getValue() === "LEGACY" ? "neutral" : "purple"}>{getValue() === "LEGACY" ? "Legacy" : "New"}</Badge> },
     { id: "period", header: "Period", enableColumnFilter: false, cell: ({ row }) => `${row.original.periodMonth}/${row.original.periodYear}` },
     { accessorKey: "proratedFeeUsd", header: "Total Service Cost ($)", enableColumnFilter: false, cell: ({ row }) => {
       const prorated = Math.abs(row.original.proratedFeeUsd - row.original.totalServiceCostUsd) > 0.01;
@@ -66,7 +66,7 @@ export default function BillingPage() {
     { accessorKey: "grossRevenueUsd", header: "Gross ($)", enableColumnFilter: false, cell: ({ getValue }) => formatUsd(getValue() as number) },
     { accessorKey: "netRevenueUsd", header: "Net ($)", enableColumnFilter: false, cell: ({ getValue }) => formatUsd(getValue() as number) },
     { accessorKey: "netRevenueInr", header: "Net (₹)", enableColumnFilter: false, cell: ({ getValue }) => formatInr(getValue() as number) },
-    { accessorKey: "status", header: "Status", cell: ({ getValue }) => <StatusBadge status={getValue() as string} /> },
+    { accessorKey: "status", header: "Status", meta: { filterType: "select" }, cell: ({ getValue }) => <StatusBadge status={getValue() as string} /> },
   ];
 
   const s = data?.summary;
@@ -99,7 +99,7 @@ export default function BillingPage() {
         <Stat label="Net Revenue (INR)" value={s ? formatInr(s.netRevenueInr) : "—"} />
       </div>
 
-      <DataTable columns={columns} data={rows} loading={isLoading} onRowClick={(r) => router.push(`/billing/${r.id}`)}
+      <DataTable columns={columns} data={rows} loading={isLoading} frozenColumnId="clientName" onRowClick={(r) => router.push(`/billing/${r.id}`)}
         empty={{ icon: <Receipt size={32} />, heading: "No billing records", subtext: "Billing auto-generates on the 2nd of each month for the previous month." }} />
     </PageShell>
   );

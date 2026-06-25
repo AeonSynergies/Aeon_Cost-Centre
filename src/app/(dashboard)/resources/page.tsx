@@ -101,7 +101,7 @@ export default function ResourcesPage() {
         </div>
       ),
     },
-    { accessorKey: "departmentName", header: "Department", cell: ({ getValue }) => <Badge tone="info">{getValue() as string}</Badge> },
+    { accessorKey: "departmentName", header: "Department", meta: { filterType: "select" }, cell: ({ getValue }) => <Badge tone="info">{getValue() as string}</Badge> },
     { accessorKey: "costCentreName", header: "Cost Centre", cell: ({ getValue }) => <span className="text-[#64748B]">{getValue() as string}</span> },
     { accessorKey: "title", header: "Title" },
     {
@@ -116,7 +116,7 @@ export default function ResourcesPage() {
       cell: ({ getValue }) => (getValue() ? <span className="text-[#1D9E75]">✓ Yes</span> : <span className="text-[#94A3B8]">—</span>),
     },
     { id: "wd", header: "Working Days", enableColumnFilter: false, cell: ({ row }) => <WorkingDayChips days={row.original.workingDays} /> },
-    { accessorKey: "status", header: "Status", cell: ({ getValue }) => <StatusBadge status={getValue() as string} /> },
+    { accessorKey: "status", header: "Status", meta: { filterType: "select" }, cell: ({ getValue }) => <StatusBadge status={getValue() as string} /> },
     {
       id: "actions",
       header: "Actions",
@@ -185,6 +185,7 @@ export default function ResourcesPage() {
         columns={columns}
         data={rows}
         loading={isLoading}
+        frozenColumnId="name"
         onRowClick={(r) => router.push(`/resources/${r.id}`)}
         empty={{ icon: <UserCog size={32} />, heading: "No resources", subtext: "Add your first resource to get started.", cta: <Button onClick={() => setAddOpen(true)}><Plus size={14} /> Add Resource</Button> }}
       />

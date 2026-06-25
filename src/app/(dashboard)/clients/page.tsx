@@ -74,7 +74,7 @@ export default function ClientsPage() {
 
   const columns: ColumnDef<Row, unknown>[] = [
     { accessorKey: "name", header: "Client", cell: ({ getValue }) => <span className="font-semibold">{getValue() as string}</span> },
-    { accessorKey: "billingType", header: "Billing", cell: ({ getValue }) => <Badge tone={getValue() === "LEGACY" ? "neutral" : "purple"}>{getValue() === "LEGACY" ? "Legacy" : "New"}</Badge> },
+    { accessorKey: "billingType", header: "Billing", meta: { filterType: "select" }, cell: ({ getValue }) => <Badge tone={getValue() === "LEGACY" ? "neutral" : "purple"}>{getValue() === "LEGACY" ? "Legacy" : "New"}</Badge> },
     { accessorKey: "paymentMethod", header: "Method", cell: ({ row }) => { const m = row.original.paymentMethod === "CARD" ? "Card" : "ACH"; return <Badge tone="info">{row.original.txnFeeEnabled ? `${m} + Txn` : `${m} (no txn)`}</Badge>; } },
     { id: "pkg", header: "Package", enableColumnFilter: false, cell: ({ row }) => row.original.packages.map((p) => (p === "LESS_THAN_25" ? "<25" : ">25")).join(", ") },
     { id: "services", header: "Services", enableColumnFilter: false, cell: ({ row }) => <CodeBadges codes={row.original.services} /> },
@@ -82,7 +82,7 @@ export default function ClientsPage() {
     { accessorKey: "endDate", header: "End", enableColumnFilter: false, cell: ({ getValue }) => formatDate(getValue() as string | null) },
     { id: "fee", header: "Monthly Fee", enableColumnFilter: false, cell: ({ row }) => <Money usd={row.original.monthlyFeeUsd} inr={row.original.monthlyFeeInr} primary="USD" /> },
     { id: "rev", header: "Total Revenue", enableColumnFilter: false, cell: ({ row }) => <Money usd={row.original.totalRevenueUsd} inr={row.original.totalRevenueInr} primary="USD" /> },
-    { accessorKey: "status", header: "Status", cell: ({ getValue }) => <StatusBadge status={getValue() as string} /> },
+    { accessorKey: "status", header: "Status", meta: { filterType: "select" }, cell: ({ getValue }) => <StatusBadge status={getValue() as string} /> },
     {
       id: "actions",
       header: "Actions",
@@ -133,7 +133,7 @@ export default function ClientsPage() {
         <Stat label="Avg per Client ($)" value={s ? formatUsd(s.avgPerClientUsd) : "—"} />
       </div>
 
-      <DataTable columns={columns} data={rows} loading={isLoading} onRowClick={(r) => router.push(`/clients/${r.id}`)}
+      <DataTable columns={columns} data={rows} loading={isLoading} frozenColumnId="name" onRowClick={(r) => router.push(`/clients/${r.id}`)}
         empty={{ icon: <Briefcase size={32} />, heading: "No clients", cta: <Button onClick={() => router.push("/clients/new")}><Plus size={14} /> Add Client</Button> }} />
 
       <ClientEditModal open={editOpen} onOpenChange={setEditOpen} client={editClient} onSaved={() => mutate()} />
