@@ -55,15 +55,26 @@ export function isOverheadEnabled(resourceOverride: boolean | null | undefined, 
   return resourceOverride;
 }
 
-/** Sum of MONTHLY extra costs active during the period. */
+/**
+ * Sum of MONTHLY extra costs active during the period. When a cost's
+ * effectiveTo falls mid-period (e.g. turned off on termination), the last
+ * month is prorated by days active (1st .. effectiveTo) / days-in-month.
+ */
 export function activeMonthlyExtraInr(extraCosts: ExtraCost[] | undefined, period: Period): number {
   if (!extraCosts) return 0;
+  const daysInMonth = new Date(period.year, period.month, 0).getDate();
   const periodEnd = new Date(period.year, period.month, 0);
   const periodStart = new Date(period.year, period.month - 1, 1);
   return extraCosts
     .filter((c) => c.frequency === "MONTHLY")
     .filter((c) => c.effectiveFrom <= periodEnd && (!c.effectiveTo || c.effectiveTo >= periodStart))
-    .reduce((s, c) => s + c.amountInr, 0);
+    .reduce((s, c) => {
+      // Prorate the final month if it ends within this period.
+      if (c.effectiveTo && c.effectiveTo >= periodStart && c.effectiveTo < periodEnd) {
+        return s + (c.amountInr * c.effectiveTo.getDate()) / daysInMonth;
+      }
+      return s + c.amountInr;
+    }, 0);
 }
 
 /** Latest revision whose effectiveFrom is on/before the end of the period. */
