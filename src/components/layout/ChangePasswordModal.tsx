@@ -3,7 +3,8 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Label } from "@/components/ui/input";
+import { PasswordInput } from "@/components/common/PasswordInput";
 import { apiSend } from "@/lib/api-client";
 import { toast } from "@/store/toastStore";
 
@@ -31,9 +32,9 @@ export function ChangePasswordModal({ open, onOpenChange }: { open: boolean; onO
         <DialogBody>
           {error && <div className="mb-3 rounded-[5px] bg-[#FAECE7] px-3 py-2 text-[12px] text-[#711B13]">{error}</div>}
           <div className="grid gap-3">
-            <div><Label>Current Password</Label><Input type="password" value={form.currentPassword} onChange={(e) => setForm((f) => ({ ...f, currentPassword: e.target.value }))} /></div>
-            <div><Label>New Password</Label><Input type="password" value={form.newPassword} onChange={(e) => setForm((f) => ({ ...f, newPassword: e.target.value }))} /></div>
-            <div><Label>Confirm New Password</Label><Input type="password" value={form.confirm} onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))} /></div>
+            <div><Label>Current Password</Label><PasswordInput value={form.currentPassword} onChange={(e) => setForm((f) => ({ ...f, currentPassword: e.target.value }))} /></div>
+            <div><Label>New Password</Label><PasswordInput value={form.newPassword} onChange={(e) => setForm((f) => ({ ...f, newPassword: e.target.value }))} /></div>
+            <div><Label>Confirm New Password</Label><PasswordInput value={form.confirm} onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))} /></div>
           </div>
         </DialogBody>
         <DialogFooter>

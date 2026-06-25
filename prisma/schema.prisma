@@ -140,6 +140,26 @@ model DepartmentCategory {
   createdAt DateTime @default(now())
 }
 
+enum CategoryType {
+  DEPARTMENT
+  EXPENSE_INR
+  EXPENSE_USD
+  REVENUE_PRODUCT
+  REVENUE_SERVICE
+  ASSET
+}
+
+model Category {
+  id        String       @id @default(cuid())
+  name      String
+  type      CategoryType
+  isBuiltIn Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([name, type])
+}
+
 enum AssetType {
   LAPTOP
   CHARGER
@@ -444,6 +464,9 @@ model User {
   departmentId   String?
   isActive       Boolean  @default(true)
   lastLoginAt    DateTime?
+  inviteToken     String?   @unique
+  inviteExpiresAt DateTime?
+  passwordSetAt   DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

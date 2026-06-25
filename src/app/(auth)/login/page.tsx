@@ -2,6 +2,7 @@
 
 import { useFormState, useFormStatus } from "react-dom";
 import { loginAction } from "./actions";
+import { PasswordInput } from "@/components/common/PasswordInput";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -82,12 +83,10 @@ export default function LoginPage() {
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">
                 Password
               </label>
-              <input
+              <PasswordInput
                 name="password"
-                type="password"
                 required
                 autoComplete="current-password"
-                className="h-[34px] w-full rounded-[7px] border border-[#E8ECF4] px-3 text-[13px] outline-none focus:border-[#3266AD]"
                 placeholder="••••••••"
               />
             </div>
